@@ -1,0 +1,25 @@
+target/
+tutorial/
+FIT_data/
+target/
+test/
+Sandbox/
+.idea/
+result/
+RFile/
+shFile/
+shFile/utils/
+RFiles/
+pythonFile/
+sotsuken/
+bin/
+.DS_Store
+.Rhistory
+.RData
+.Rprofile
+RealEstimation.ipynb
+.ipynb_checkpoints/
+.settings/
+
+[core]
+    excludesfile = /Users/tara/.gitignore_global
