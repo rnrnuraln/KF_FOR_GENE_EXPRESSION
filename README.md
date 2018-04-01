@@ -22,7 +22,7 @@ Some original features are added, .
 
 * To avoid over fitting, L1 or L2 regularization can be selected.
 
-* To deal with 
+* Missing values of observed data are permitted.
 
 * To make the model simple, covariane of Gaussian noise can be diagonal.
 
@@ -60,6 +60,16 @@ https://www.scala-sbt.org/
 Compile using sbt by assembly command.
 
 Then, jar file for this program will be generated under target/scala-2.11.
+
+## Tutorial
+
+ Install sbt and enter the code below at the command line.
+
+```
+ sbt run -m learn -c tutorial/tutorial.cnd -i tutorial/observe_control_seq.tsv -o tutorial/result.kalf
+```
+
+ Then, results would be appeared under tutorial.
 
 ## Performance
 
