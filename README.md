@@ -63,10 +63,10 @@ Then, jar file for this program will be generated under target/scala-2.11.
 
 ## Tutorial
 
- Install sbt and enter the code below at the command line.
+ Install and run sbt, and enter the command below.
 
 ```
- sbt run -m learn -c tutorial/tutorial.cnd -i tutorial/observe_control_seq.tsv -o tutorial/result.kalf
+> run -m learn -c tutorial/tutorial.cnd -i tutorial/con_obs_seq.tsv -o tutorial/result.kalf
 ```
 
  Then, results would be appeared under tutorial.
