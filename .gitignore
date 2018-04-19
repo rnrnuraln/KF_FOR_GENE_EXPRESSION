@@ -19,6 +19,8 @@ bin/
 RealEstimation.ipynb
 .ipynb_checkpoints/
 .settings/
+*.ipynb
+experiment_condition
 
 [core]
     excludesfile = /Users/tara/.gitignore_global

@@ -72,6 +72,7 @@ case class GenerateCond(s: String, m: Matrices = null, v: DenseVector[Double] = 
       case None =>
         mode match {
           case "synchro" => matrix
+          case "file" => matrix
           case "identity" => DiagMatrices(DenseVector.ones[Double](n))
           case "zero" => DenseMatrices(DenseMatrix.zeros[Double](n, m))
           case _ => DenseMatrices(DenseMatrix.zeros[Double](n, m))
@@ -178,11 +179,18 @@ case class GenerateCond(s: String, m: Matrices = null, v: DenseVector[Double] = 
   }
 
   protected def readMatrix(fileName: Option[String]): Option[Matrices] = {
+    //diagの場合とdenseの場合両方考慮できるようにする
+    //一行目に"diag"とあれば、、二行目のvectorになっているdiagMatrixを読み込むようにするそれ以外なら一行目からmatrixを読み込むようにする
     fileName match {
       case Some(f) =>
         val s = scala.io.Source.fromFile(f).getLines()
-        val list = s.map(s => s.split("\t").map(_.toDouble)).toList
-        Some(DenseMatrices(DenseMatrix(list: _*)))
+        if (s.next() == "diag") {
+          val d = DenseVector(s.next().split("\t").map(_.toDouble): _*)
+          Some(DiagMatrices(d))
+        } else {
+          val list = s.map(s => s.split("\t").map(_.toDouble)).toList
+          Some(DenseMatrices(DenseMatrix(list: _*)))
+        }
       case None =>
         None
     }
