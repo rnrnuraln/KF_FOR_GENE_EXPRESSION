@@ -8,33 +8,46 @@ Kalman Filter is a widely used filtering method in the field of control engineer
 
 This tool aims to predict gene expression using Kalman filter, still being under construction.
 
-There are some varieties of Kalman Filter model, and here we consider the model that consists of three main variables (hidden (x), observed (z), and environmental (u)), and two noise variables (v, w) normally distributed with mean 0. They are all real vector. Temporal behavior of each variable is described by linear stochastic difference equation shown below.
+There are some varieties of Kalman Filter model, and here we consider the model that consists of three main variables (hidden (x), observed (z), and environmental (u)), and two noise variables (v, w) normally distributed with mean 0. 
+They are all real vector. Temporal behavior of each variable is described by linear stochastic difference equation shown below.
 
 ![equation for Kalman Filter](https://github.com/rnrnuraln/KF_FOR_GENE_EXPRESSION/blob/master/images/Screen%20Shot%202018-03-17%20at%2010.11.31.png)
 
 ![Explanation of Kalman Filter](https://github.com/rnrnuraln/KF_FOR_GENE_EXPRESSION/blob/master/images/kalman_picture.png)
 
-Since we did not assume what exactly the hidden states are, we made a tool to estimate some parameters of Kalman Filter from data, so that observed variable fits the data. Thanks to the simplicity of the model, we can estimate the parameters using EM algortihm, just like as Baum-Welch algorithm used in parameter estimation of HMM. EM algorithm can find parameters that make log-likelihood high in a short time.
+Since we did not assume what exactly the hidden states are, we made a tool to estimate some parameters of Kalman Filter from data, so that observed variable fits the data. 
+Thanks to the simplicity of the model, we can estimate the parameters using [EM algortihm](https://en.wikipedia.org/wiki/Expectation%E2%80%93maximization_algorithm), just like as Baum-Welch algorithm used in parameter estimation of HMM. 
+Using EM algorithm, parameters that increase log-likelihood of the model can be found efficiently.
 
-## Feature
+## Estimation
 
-Some original features are added, .
+ The parameters to estimate are described below.
+ 
+* Matrix A, B, H, in the formula above.
+* Covariance of noise variables of hidden and observed variables.
+* Mean and covariances of the initial state of hidden variables.
+ Since the model is described by difference equation, we have to specify initial state of the model in some way.
 
-* To avoid over fitting, L1 or L2 regularization can be selected.
+ Estimating the parameters of this model are written [here](http://mlg.eng.cam.ac.uk/zoubin/course04/tr-96-2.pdf).
+ Based on the algorithm, I added some original features.
 
+* To avoid overfitting, L1 or L2 regularization can be selected.
 * Missing values of observed data are permitted.
-
-* To make the model simple, covariane of Gaussian noise can be diagonal.
-
+* Since EM algorithm tends to convergence to a local optimum, initial values for EM algorithm are chosen randomly many times and the best parameters are taken.
+* To make the model simple, covariance of Gaussian noise can be diagonal.
 * Dimension of the hidden state can be determined by cross validation.
+* ...
 
-And more...
+ We do not write detail of the algorithm here, because it is so complicated. 
+ 
+## Prediction
 
+ After estimating, we can predict gene expression level using Kalman Filtering method. 
+ This mode has not yet implemented.
 
 ## Usage
 
-Simple usage will be written here. See more details on docs/format.md.
-
+Simple usage is written here. 
 
 * [-m mode -i input -o output -c condition]
  There are two mode in this code; mode and evaluation mode. We can change mode using -m option.
@@ -49,35 +62,62 @@ Simple usage will be written here. See more details on docs/format.md.
  This mode is used to evaluate the performance of the tool.
 
 ** "predict" mode
- Using Kalman Filter, predict gene expression. This have not yet implemented.
-
+ Using Kalman Filter, predict gene expression. This has not yet implemented.
+ 
+ In "learn" and "evaluate" mode, this tool has many parameters.
+ We can arrange them using -c option.
+ However, it is so complicated that we cannot describe in this space.
+ The explanation of the condition would be written in docs/format.txt later.
+ 
 ## Install
 
 To install the program, sbt is required.
 
 https://www.scala-sbt.org/
 
-Compile using sbt by assembly command.
+After install, start sbt at this directory. It takes some time for initializing. Then, the interactive mode of sbt will be appeared. 
 
-Then, jar file for this program will be generated under target/scala-2.11.
+You can run the program in the interactive mode by typing "run".
+
+You can also generate packaged jar file by typing "assembly" in the interactive mode.
 
 ## Tutorial
 
- Install and run sbt, and enter the command below.
+ Install and run sbt, and copy and paste the words below.
 
 ```
 > run -m learn -c tutorial/tutorial.cnd -i tutorial/con_obs_seq.tsv -o tutorial/result.kalf
 ```
 
- Then, results would be appeared under tutorial.
+ "tutorial/con_obs_seq.tsv" shows the data to learn parameters.
+ Dimension of observed variable(z in the formula above) is 5 and that of environmental variable(u in the formula above) is 3. 
+ The number of independent sequence is 5 and the length of each sequence is 100.
+
+ Condition for this program is written in "tutorial/tutorial.cnd". 
+ The format of condition file is complicated and is hard to explain all of that.
+ Let me pick up some feature of the condition.
+ 
+* Matrix A, B, H are estimated using L1-regularization.
+* Covariance matrix of the noise variable of the hidden layer is fixed to be identical.
+* Covariance matrix of the noise variable of the observed layer is designed to be diagonal.
+
+ It takes some time to complete compiling and running the program.
+ After running, results would be appeared under tutorial directory.
+ 
+ Results of the formats are generated at "tutorial/result.kalf".
+ It shows results of estimation of each parameter and likelihood of the model.
+ Explanation of the formats are written in "docs/format".
 
 ## Performance
 
-Based on this algorithm, We developed a tool to estimate them and watched how well it estimates parameters from simulation data. The simulation data were some sequences of vector generated according to Kalman Filter model. We changed the number of the sequences in several ways and watched how relative error of estimated value changed with that. 
+Based on the estimation algorithm, We developed a tool to estimate them and watched how well it estimates parameters from simulation data. 
+The simulation data were some sequences of vector generated according to Kalman Filter model. 
+We changed the number of the sequences in several ways and watched how relative error of estimated value changed with that. 
 
 ![log likelihood ratio for simulation data](https://github.com/rnrnuraln/KF_FOR_GENE_EXPRESSION/blob/master/images/log_likelihood.png)
 
-Log-likelihood ratio (estimated/true) for the test data decreased with data increasing, which means that estimated parameters becomes near to true one. Hence, we can say that our program worked well. 
+Log-likelihood ratio (estimated/true) for the test data decreased with data increasing, which means that estimated parameters becomes near to true one. 
+Hence, we can say that our program worked well in the simulation data. 
 
 
 ## Licence

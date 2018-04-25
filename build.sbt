@@ -1,4 +1,3 @@
-import AssemblyKeys._ // put this at the top of the file
 lazy val root = (project in file(".")).
   settings(
     name := "KF_FOR_GENE_EXPRESSION",
@@ -25,4 +24,3 @@ resolvers ++= Seq(
 libraryDependencies +=
   "com.typesafe.akka" %% "akka-actor" % "2.5.0"
 
-assemblySettings

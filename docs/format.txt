@@ -9,49 +9,67 @@ z_k = Hx_k + v_k
   x_i, u_i, w_i, z_i, v_i (0 <= i <= T) are each vector of length of n, l, n, m, m.
   A, B, H are each n*n, n*l, n*m matrix.
  
- x is the hidden variable, and z is the appeared variable.
- u is the control variable through which we can change the behavior of the system.
+ x is the hidden variable, and z is the observed variable.
+ u is the environmental variable.
  w and v are noise variable, whose distribution are given by
  
  p(w) ~ N(0, Q)
  p(v) ~ N(0, R)
- 
-1.2 The file format
 
- There are two files which describe the system: the parameter format file and the run format file. Instance of these two are shown below.
- 
-Parameter format for Kalman Filter
-separated by tab.
-3 % n
-1 % l
-1 % m
+ We assume initial state of hidden variable to be
 
-% A
+ p(x_0) ~ N(mu, S)
+
+1.2 Formats of results
+
+After estimation, the result file would be generated.
+Here, we explain the format of the file.
+Actually, the real file is written in only numbers and have no comments.
+
+--------------------------------------------------------------------------------
+result file
+--------------------------------------------------------------------------------
+
+3 % n; dimension of hidden variable
+1 % l; dimension of environmental variable
+1 % m; dimension of observed variable
+
+% matrix A
 1.4 0.8 0.7
 0.8 1.1 0.9
 1.2 0.6 1.5
 
-% B
+% matrix B
 1.2
 0.6
 2.3
 
-% H
+% matrix H
 1.9 1.0 0.5
 
-% R
-0.8 0.6 0.2
--0.1 3.0 0.3
--0.2 -1.0 2.0
+% matrix Q; Covariance matrix of noise variable in hidden layer. Here, it assumes to be diagonal.)
+2.0 1.0 1.0
 
-% Q
-2.0
+% matrix R; Covariance matrix of noise variable in observed layer. Here, it assumes to be diagonal.)
+1.0
 
-Comment out system has not been implemented.
+% log-likelihood of the model
+-207.7224043899505
 
-#Parameters for Estimation of parameters using
+% mu; Mean of initial state.
+-0.019788124111994754	-0.08204529075120287	0.04100776405724752
+
+% S; Covariance matrix of initial state.
+1.0	1.0	1.0
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+1.3 Condition parameters for Estimation
 
 There are some parameters to conduct EM Algorithm.
+We can arrange them using -c option.
+This section is now under construction.
 
 Int parameters
 
@@ -63,7 +81,7 @@ emRand: Array[Int] = Array()
 Double parameters
 delta: Array[Double] = Array(),
 
-Generating Parameters
+Generating parameters for initializing (EM algorithm needs initial value)
 Ainit: GenerateCond = GenerateCond(""),
 Binit: GenerateCond = GenerateCond(""),
 Hinit: GenerateCond = GenerateCond(""),
@@ -72,9 +90,7 @@ Rinit: GenerateCond = GenerateCond(""),
 initStateMeanInit: GenerateCond = GenerateCond(""),
 initStateCovarianceInit: GenerateCond = GenerateCond("")
 
-parallelNumとか知りたい
-
-Opitimization Parameters
+Opitimization parameters
 AOpt: (Array[String], Array[Double]) = (Array(), Array()),
 BOpt: (Array[String], Array[Double]) = (Array(), Array()),
 HOpt: (Array[String], Array[Double]) = (Array(), Array()),
@@ -85,11 +101,3 @@ initStateCovarianceOpt: (Array[String], Array[Double]) = (Array(), Array()),
 
 String Parameters
 crossValidPredictFile: String = ""
-
-Parameters for Some Experiments will be specified by each experiments.
-See experiment_format.md for more details
-
-See [1] for more detail.
-
-Reference
-[1] An Introduction to the Kalman Filter
