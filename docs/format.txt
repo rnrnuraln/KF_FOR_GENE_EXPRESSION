@@ -71,33 +71,116 @@ There are some parameters to conduct EM Algorithm.
 We can arrange them using -c option.
 This section is now under construction.
 
-Int parameters
+===========================================
 
-emHid: (String, Array[Int]) = ("", Array())
-emTime: Array[Int] = Array()
-emShallow: Array[Int] = Array(),
-emRand: Array[Int] = Array()
+  Basics
 
-Double parameters
-delta: Array[Double] = Array(),
+Basically, parameters are written as
+
+[Parameter1]=value1 value2 value3,value4 value5 ...
+[Parameter2]=value1 value2 value3,value4 value5 ...
+
+Parameters are written in left side and values are right side of the equal symbol.
+Values are basically space separated. Values are separated by comma in some meanings.
+
+=====================================================
+
+ hidden variable related parameters
+
+* emHid
+ This parameter specifies how the dimension of hidden variables are decided.
+ Since we do not know what the system is before estimating the parameters, we cannot decide what the dimension of hidden variables.
+ So we decided to take parameters using some scheme.
+ Examples are shown below.
+
+crossValid ... decide the dimension of hidden variable using cross validation. 1から始めていくパターン
+fixed ... This also decide the dimension of hidden parameters using cross validation, but is from from some candidates.
+
+ex.)1
+emHid=crossValid
+
+ Hidden variable is decided only by cross validation.
+
+ex.)
+emHid=fixed,2 3 4
+
+ Hidden variable is decided by cross validation, but candidates are only 2, 3, and 4.
+
+* foldNum
+ This parameter is used only when cross validation is conducted.
+ This parameter specifies the fold number of cross validation.
+
+ex.)
+foldNum=4
+
+* crossValidPredictFile
+
+ You don't need to specify this parameter.
+
+ex.)
+crossValidPredictFile=ahoaho.tsv
+
+=====================================================
+
+ EM algorithm itself related parameters
+
+* delta
+ 打ち切りの時間
+
+* emTime
+ This parameter specifies the number of EM何回で打ち切るか
+ 理想を言えば変化の差が小さくなったときとかbut EM algorithm sometimes 収束が遅い。
+ So, このような形で強制的に打ち切る
+
+=====================================================
+
+ ランダムサーチ関連のパラメータ達
+ このプログラムでは、過学習を防ぐため、EM algorithmの初期値をランダムサーチを用いていくつか与えて、数回回して一番対数尤度が一番大きいものを選択
+
+* emRand
+ ランダムサーチの回数
+
+* emShallow
+ This parameter specifies the number of ランダムサーチごとのEMアルゴリズムの打ち切り回数
+ 説明が難しい
+
+
+=====================================================
 
 Generating parameters for initializing (EM algorithm needs initial value)
-Ainit: GenerateCond = GenerateCond(""),
-Binit: GenerateCond = GenerateCond(""),
-Hinit: GenerateCond = GenerateCond(""),
-Qinit: GenerateCond = GenerateCond(""),
-Rinit: GenerateCond = GenerateCond(""),
-initStateMeanInit: GenerateCond = GenerateCond(""),
-initStateCovarianceInit: GenerateCond = GenerateCond("")
 
-Opitimization parameters
-AOpt: (Array[String], Array[Double]) = (Array(), Array()),
-BOpt: (Array[String], Array[Double]) = (Array(), Array()),
-HOpt: (Array[String], Array[Double]) = (Array(), Array()),
-QOpt: (Array[String], Array[Double]) = (Array(), Array()),
-ROpt: (Array[String], Array[Double]) = (Array(), Array()),
-initStateMeanOpt: (Array[String], Array[Double]) = (Array(), Array()),
-initStateCovarianceOpt: (Array[String], Array[Double]) = (Array(), Array()),
+ Basically, generated from Gaussian distribution.
+ 全部のパラメータを書くのはややこしくて書ききれない。
 
-String Parameters
-crossValidPredictFile: String = ""
+Ainit %
+Binit %
+Hinit %
+Qinit %
+Rinit %
+initStateMeanInit %
+initStateCovarianceInit %
+
+=====================================================
+
+Optimization parameters
+
+　こちらもややこしくて書ききるのが難しい
+　L1正則化、L2正則化などの条件を書く
+
+AOpt %
+BOpt %
+HOpt %
+QOpt %
+ROpt %
+initStateMeanOpt %
+initStateCovarianceOpt %
+
+=====================================================
+
+Other parameters
+
+* parallelThreadNum
+
+ Maximum of the number of parallel threads used in the program.
+
+=====================================================
