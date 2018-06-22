@@ -42,11 +42,40 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
     * @return
     */
   def learn(): EMOutputs = {
+    val learnedEM = if (cond.lambdaCrossValid.length > 0) {
+      val aOpt = if (cond.AOpt._2.length > 0) cond.AOpt._2(0) else -1
+      val bOpt = if (cond.BOpt._2.length > 0) cond.BOpt._2(0) else -1
+      val hOpt = if (cond.HOpt._2.length > 0) cond.HOpt._2(0) else -1
+      val qOpt = if (cond.QOpt._2.length > 0) cond.QOpt._2(0) else -1
+      val rOpt = if (cond.ROpt._2.length > 0) cond.ROpt._2(0) else -1
+      val mOpt = if (cond.initStateMeanOpt._2.length > 0) cond.ROpt._2(0) else -1
+      val sOpt = if (cond.initStateCovarianceOpt._2.length > 0) cond.ROpt._2(0) else -1
+      cond.lambdaCrossValid.map(x => {
+        //正則化項がそれぞれx倍されるんだけど、それを組み込む（だるい）
+        if (aOpt > 0) cond.AOpt._2(0) = aOpt * x
+        if (bOpt > 0) cond.BOpt._2(0) = bOpt * x
+        if (hOpt > 0) cond.HOpt._2(0) = hOpt * x
+        if (qOpt > 0) cond.QOpt._2(0) = qOpt * x
+        if (rOpt > 0) cond.ROpt._2(0) = rOpt * x
+        if (mOpt > 0) cond.initStateMeanOpt._2(0) = mOpt * x
+        if (sOpt > 0) cond.initStateCovarianceOpt._2(0) = sOpt * x
+        learnSub()
+      }).max
+    } else learnSub()
+    if (cond.crossValidPredictFile != "") {
+      val fp = utils.Utils.makePrintWriter(cond.crossValidPredictFile)
+      fp.print(learnedEM._2)
+      fp.close()
+    }
+    learnedEM._1
+  }
+
+  def learnSub(): (EMOutputs, String) = {
     cond.emHid._1 match {
       case "synchro" => learnSeveralTimes(cond.emHid._2(0), seqs)
       case "crossValid" => hidDimUnknownLearn()
       case "fixed" => hidDimCandidateLearn(cond.emHid._2)
-      case _ => EMOutputs(null, List(), null, null)
+      case _ => (EMOutputs(null, List(), null, null), "")
     }
   }
 
@@ -67,7 +96,7 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
       val validateSeqs = seqs.slice(from, until)
       val seqsWithoutOne = seqs.take(from) ::: seqs.drop(until)
       val learnedEMOutputs = learnSeveralTimes(n, seqsWithoutOne)
-      val fws = validateSeqs.map(seq => Forward(learnedEMOutputs.kf, seq, learnedEMOutputs.initStateMeanMean, learnedEMOutputs.initStateCovarianceMean))
+      val fws = validateSeqs.map(seq => Forward(learnedEMOutputs._1.kf, seq, learnedEMOutputs._1.initStateMeanMean, learnedEMOutputs._1.initStateCovarianceMean))
       if (cond.crossValidPredictFile != "") {
         val predicts: Seq[Array[DenseVector[Double]]] = fws.map(x => x.predicts)
         predicts.foreach(array => {
@@ -79,15 +108,15 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
       s + fws.foldLeft(0.0) {(s2, x) => s2 + x.logLikelihood}
     }
     val allEMOutputs = learnSeveralTimes(n, seqs)
-    val allEMOutputsFixed = allEMOutputs.copy(logLikelihoods = List(allLikelihood))
-    (allEMOutputsFixed, sb.toString())
+    val allEMOutputsFixed = allEMOutputs.copy(_1 = allEMOutputs._1.copy(logLikelihoods = List(allLikelihood)), _2 = sb.toString())
+    allEMOutputsFixed
   }
 
   /**
     * 隠れ状態の次元を交差検証を用いて求めるタイプ
     * 1から順番に求めていく奴だけど…… 二部探索とかのが良さげ?
     */
-  def hidDimUnknownLearn(): EMOutputs = {
+  def hidDimUnknownLearn(): (EMOutputs, String) = {
     def hidDimUnknownLearnSub(n: Int, emOutputs: EMOutputs, predict: String): (EMOutputs, String) = {
       if (n > m)
         (emOutputs, predict)
@@ -97,25 +126,15 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
       }
     }
     val crossValidated = hidDimUnknownLearnSub(1, EMOutputs(logLikelihoods = List(Double.MinValue)), "")
-    if (cond.crossValidPredictFile != "") {
-      val fp = utils.Utils.makePrintWriter(cond.crossValidPredictFile)
-      fp.print(crossValidated._2)
-      fp.close()
-    }
-    crossValidated._1
+    crossValidated
   }
 
   /**
     * 隠れ状態の次元の候補から求めるタイプ
     */
-  def hidDimCandidateLearn(hids: Array[Int]): EMOutputs = {
+  def hidDimCandidateLearn(hids: Array[Int]): (EMOutputs, String) = {
     val crossValidated = hids.map(crossValid(_)).max
-    if (cond.crossValidPredictFile != "") {
-      val fp = utils.Utils.makePrintWriter(cond.crossValidPredictFile)
-      fp.print(crossValidated._2)
-      fp.close()
-    }
-    crossValidated._1
+    crossValidated
   }
 
   /**
@@ -123,7 +142,7 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
     *
     * @return
     */
-  def learnSeveralTimes(n: Int, seqs: List[Array[ConObs]]): EMOutputs = {
+  def learnSeveralTimes(n: Int, seqs: List[Array[ConObs]]): (EMOutputs, String) = {
     val emRandPar = (0 until cond.emRand(0)).par
     emRandPar.tasksupport = new scala.collection.parallel.ForkJoinTaskSupport(new scala.concurrent.forkjoin.ForkJoinPool(cond.parallelThreadNum(0)))
     val maxEMOutputs = emRandPar.map(x => {
@@ -138,7 +157,7 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
     val emCond = emCondCommon.copy(emTime = cond.emTime(0), initkf = maxEMOutputs.kf, initStateMeans = maxEMOutputs.initStateMeans, initStateCovariances = maxEMOutputs.initStateCovariance)
     val emAlgorithm = EMAlgorithm(seqs, emCond)
     println("log: \n" + emAlgorithm.learnBasis())
-    emAlgorithm.learnBasis()
+    (emAlgorithm.learnBasis(), "")
   }
 
 }

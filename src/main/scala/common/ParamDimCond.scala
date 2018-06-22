@@ -122,6 +122,7 @@ case class OptimizeCond(emHid: (String, Array[Int]),
                         ROpt: (Array[String], Array[Double]),
                         initStateMeanOpt: (Array[String], Array[Double]),
                         initStateCovarianceOpt: (Array[String], Array[Double]),
+                        lambdaCrossValid: Array[Double],
                         parallelThreadNum: Array[Int],
                         crossValidPredictFile: String) extends OptimizeCondTrait
 
@@ -152,12 +153,13 @@ object OptimizeCond extends ParamDimCond {
     val ROpt = params.getOrElse("ROpt", "")
     val initStateMeanOpt = params.getOrElse("initStateMeanOpt", "")
     val initStateCovarianceOpt = params.getOrElse("initStateCovarianceOpt", "")
+    val lambdaCrossValid = params.getOrElse("lambdaCrossValid", "")
     val parallelThreadNum = params.getOrElse("parallelThreadNum", "")
     val crossValidPredictFile = params.getOrElse("crossValidPredictFile", "")
 
     OptimizeCond(emHid, foldNum, emTime, emShallow, emRand, Ainit, Binit, Hinit, Qinit, Rinit,
       initStateMeanInit, initStateCovarianceInit, delta, AOpt, BOpt, HOpt, QOpt, ROpt,
-      initStateMeanOpt, initStateCovarianceOpt, parallelThreadNum, crossValidPredictFile)
+      initStateMeanOpt, initStateCovarianceOpt, lambdaCrossValid, parallelThreadNum, crossValidPredictFile)
   }
 }
 
