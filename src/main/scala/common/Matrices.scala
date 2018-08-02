@@ -112,8 +112,9 @@ case class DenseMatrices(denseMatrix: DenseMatrix[Double] = null) extends Matric
     try {
       DenseMatrices(breeze.linalg.inv(denseMatrix))
     } catch {
-      case m: MatrixSingularException => {System.err.println("singular matrix has appeared!"); System.err.println(this);
-        DenseMatrices(DenseMatrix.zeros[Double](denseMatrix.rows, denseMatrix.cols))}
+      case m: MatrixSingularException => {
+        DenseMatrices(breeze.linalg.pinv(denseMatrix));
+      }
     }
   }
 

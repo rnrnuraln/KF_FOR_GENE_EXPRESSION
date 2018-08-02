@@ -5,5 +5,14 @@ package common
   */
 class Predict {
 
+  /**
+    * 多分ここに隠れ状態とかを予測っつーか推定っつーかするメソッドを作る
+    */
+
+
+
+}
+
+object Predict {
 
 }

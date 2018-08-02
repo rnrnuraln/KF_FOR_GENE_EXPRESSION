@@ -60,13 +60,13 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
     * @param init
     */
   class TurnForEM(abq: Char = 'A', hr: Char = 'H', init: Char = 'm') {
-    val Afixed = cond.AOpt._1(0) == "fixed"
-    val Bfixed = cond.BOpt._1(0) == "fixed" || l == 0
-    val Qfixed = cond.QOpt._1(0) == "fixed"
-    val Hfixed = cond.HOpt._1(0) == "fixed" || (cond.HOpt._1.indexOf("upperIdentity") > 0 && (m == n))
-    val Rfixed = cond.ROpt._1(0) == "fixed"
-    val initStateMeanfixed = cond.initStateMeanOpt._1(0) == "fixed"
-    val initStateCovariancefixed = cond.initStateCovarianceOpt._1(0) == "fixed"
+    val Afixed = cond.AOpt.mode == "fixed"
+    val Bfixed = cond.BOpt.mode == "fixed" || l == 0
+    val Qfixed = cond.QOpt.mode == "fixed"
+    val Hfixed = cond.HOpt.mode == "fixed" || (cond.HOpt.upperIdentity && (m == n))
+    val Rfixed = cond.ROpt.mode == "fixed"
+    val initStateMeanfixed = cond.initStateMeanOpt.mode == "fixed"
+    val initStateCovariancefixed = cond.initStateCovarianceOpt.mode == "fixed"
     val abqTurn = if (Afixed && Bfixed && Qfixed) 'F' else abq
     val hrTurn = if (Hfixed && Rfixed) 'F' else hr
     val initTurn = if (initStateCovariancefixed && initStateMeanfixed) 'F' else init
@@ -109,6 +109,7 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
     * @return
     */
   def learnBasis(): EMOutputs = {
+    val stopCalcVal = 1000.0// 正則化項こそあれ、あまりに大きい項が出てきた場合はそこで打ち止め。ここではとりあえず1000以上が出てきたらやめる方針で
     def learnSub(prevOutputs: EMOutputs, i: Int, turn: TurnForEM): EMOutputs = {
       val seqsWithInits = seqs.zip(prevOutputs.initStateMeans.zip(prevOutputs.initStateCovariance))
       // Kalman smoothing using forward and backward algorithm
@@ -117,7 +118,7 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
       val emDtos = obtainEMDto(forwards.map(_.run).zip(backwards.map(_.run)), prevOutputs.kf)
 
       val outputs = updateParams(emDtos, prevOutputs, turn)
-      if (i > cond.emTime || prevOutputs.calcDif(outputs) < cond.delta) {
+      if (i > cond.emTime || prevOutputs.calcDif(outputs) < cond.delta || outputs.kf.max > stopCalcVal) {
         val newOutputs = outputs.copy(logLikelihoods = forwards.map(_.logLikelihood).sum :: prevOutputs.logLikelihoods)
         newOutputs
       } else {
@@ -125,7 +126,12 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
         learnSub(newOutputs, i + 1, turn.rotate())
       }
     }
-    learnSub(EMOutputs(cond.initkf, List(Double.MinValue), cond.initStateMeans, cond.initStateCovariances), 0, new TurnForEM().rotate())
+    //どのturnから始めるかをrandomとして設定するためのメソッド
+    def initTurn(i: Int, N: Int, turn: TurnForEM): TurnForEM = {
+      if (i < N) initTurn(i+1, N, turn.rotate()) else turn
+    }
+    val turn = initTurn(0, (Math.random() * 6).toInt, new TurnForEM().rotate())
+    learnSub(EMOutputs(cond.initkf, List(Double.MinValue), cond.initStateMeans, cond.initStateCovariances), 0, turn)
   }
 
   /**
@@ -197,7 +203,7 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
     }
     newkf = turn.hrTurn match {
       case 'H' =>
-        val upperIdentity = cond.HOpt._1.indexOf("upperIdentity") > 0
+        val upperIdentity = cond.HOpt.upperIdentity
         val S = if (upperIdentity) {
           prevOutputs.kf.R match {
             case DenseMatrices(matrix) => DenseMatrices(matrix(n until m, n until m))
@@ -216,7 +222,7 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
     var newEMOutputs = prevOutputs.copy(kf = newkf)
     newEMOutputs = turn.initTurn match {
       case 'm' =>
-        val initStateMeansList = if (cond.initStateMeanOpt._1.indexOf("independent") > 0) {
+        val initStateMeansList = if (cond.initStateMeanOpt.isIndependent) {
           emDtos.zip(prevOutputs.initStateMeans).zip(prevOutputs.initStateCovariance).map(x => {
             val em = x._1._1
             val mean = x._1._2
@@ -225,7 +231,7 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
           }).toList
         } else {
           //実装上の難易度の理由から、共分散は全ての系列で同一の物とする。
-          require(cond.initStateCovarianceOpt._1.indexOf("independent") < 0)
+          require(!cond.initStateCovarianceOpt.isIndependent)
           val mean = prevOutputs.initStateMeans(0)
           val cov = prevOutputs.initStateCovariance(0)
           val betas = emDtos.foldLeft(DenseVector.zeros[Double](n)) { (s, x) => s + x(0).beta }
@@ -234,7 +240,7 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
         }
         newEMOutputs.copy(initStateMeans = initStateMeansList)
       case 'S' =>
-        val initStateCovarianceList = if (cond.initStateCovarianceOpt._1.indexOf("independent") > 0) {
+        val initStateCovarianceList = if (cond.initStateCovarianceOpt.isIndependent) {
           emDtos.zip(prevOutputs.initStateMeans).zip(prevOutputs.initStateCovariance).map(x => {
             val em = x._1._1
             val mean = x._1._2
@@ -270,11 +276,10 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
     * @param S
     * @return
     */
-  def optimizeCoefficientParams(optCond: (Array[String], Array[Double]),
+  def optimizeCoefficientParams(optCond: OptCond,
                                 derivatives: (Matrices, Matrices),
                                 X: Matrices, S: Matrices): Matrices = {
-    val mode = optCond._1(0)
-    val hyperParams = optCond._2
+    val mode = optCond.mode
     val K = derivatives._2
     val invS = S.inv
     val J = derivatives._1
@@ -285,9 +290,9 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
     }
     def proximalGradient(softThreshold: (Matrices, Double) => Matrices): Matrices = {
       val initS = 1.0;
-      val lambda = hyperParams(0)
-      val delta = hyperParams(1)
-      val time = hyperParams(2).toInt //打ち切り上限回数
+      val lambda = optCond.lambda
+      val delta = optCond.subParams(0)
+      val time = optCond.subParams(1).toInt //打ち切り上限回数
       val kOp = K.operatorNorm
       if (kOp < 0.0) {
         return DenseMatrices(DenseMatrix.zeros[Double](100, 100))
@@ -315,7 +320,7 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
         proximalGradient((m, C) => m / (1 + C))
       case "l1_reg" =>
         proximalGradient((m, C) => {
-          val fixedC = if (optCond._1.indexOf("noDataSizeFix") > 0) C else C * dataSize
+          val fixedC = if (optCond.noDataSizeFix) C else C * dataSize
           m.toDenseMatrix.map(x =>
             if (x < -fixedC) {
               x + fixedC
@@ -333,29 +338,28 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
 
   //共分散を最適化。微分はSymmetry(nX - L)の形を取る。
   //たまにアホみたいに大きい共分散が出ることがあり、それが続くとMatrixがSingularになったりするので、それを防ぐために補正したりする
-  def optimizeCovarianceParams(optCond: (Array[String], Array[Double]), derivatives: (Int, Matrices)): Matrices = {
+  def optimizeCovarianceParams(optCond: OptCond, derivatives: (Int, Matrices)): Matrices = {
     val n = derivatives._1
     val L = derivatives._2
-    val mode = optCond._1(0)
-    val hyperParams = optCond._2
+    val mode = optCond.mode
     val m = L.cols
     mode match {
       case "naive" => L / n
       case "gamma" => {
         //対角行列のみ
-        val lowerBound = if (hyperParams.length < 3) 0.01 else hyperParams(2)
-        val upperBound: DenseVector[Double] = if (optCond._1.indexOf("automatic") > 0) {
+        val lowerBound = if (optCond.subParams.length < 1) 0.01 else optCond.subParams(0)
+        val upperBound: DenseVector[Double] = if (optCond.automatic) {
           allDataVariance
-        } else if (hyperParams.length < 3) {
+        } else if (optCond.subParams.length < 2) {
           DenseVector.fill[Double](m, 100.0)
         } else {
-          DenseVector.fill[Double](m, hyperParams(3))
+          DenseVector.fill[Double](m, optCond.subParams(1))
         }
         val dvec = DenseVector.zeros[Double](m)
         val lDiag = L.toDiagVector
         (0 until m).foreach(i => {
           val x = lDiag(i)
-          val a = (x + (1 / hyperParams(1))) / (n + hyperParams(0) - 1)
+          val a = (x + (1 / optCond.regParams(1))) / (n + optCond.regParams(0) - 1)
           dvec(i) = if (a > upperBound(i)) upperBound(i) else if (a < lowerBound) lowerBound else a
         })
         DiagMatrices(dvec)
@@ -431,7 +435,7 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
   }
 
   def getHDerivative(emDtos: Seq[Array[EMDto]], emOutputs: EMOutputs): (Matrices, Matrices) = {
-    val upperIdentity = cond.HOpt._1.indexOf("upperIdentity") > 0
+    val upperIdentity = cond.HOpt.upperIdentity
     val n = emOutputs.kf.n
     val derivativeFunc = (em: Array[EMDto], seq: Array[ConObs], i: Int) => {
       val dbe: DenseVector[Double] = em(i).delta * em(i + 1).beta + em(i).epsilon

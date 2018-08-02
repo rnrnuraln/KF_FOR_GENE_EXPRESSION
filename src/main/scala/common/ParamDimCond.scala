@@ -69,6 +69,8 @@ trait ParamDimCond {
 
   implicit def StringToBoolean(s: String): Boolean = s.toBoolean
 
+  implicit def StringToOptCond(s: String): OptCond = OptCond(s)
+
 }
 
 
@@ -88,13 +90,13 @@ trait OptimizeCondTrait {
   val initStateMeanInit: GenerateCond
   val initStateCovarianceInit: GenerateCond
   val delta: Array[Double]
-  val AOpt: (Array[String], Array[Double])
-  val BOpt: (Array[String], Array[Double])
-  val HOpt: (Array[String], Array[Double])
-  val QOpt: (Array[String], Array[Double])
-  val ROpt: (Array[String], Array[Double])
-  val initStateMeanOpt: (Array[String], Array[Double])
-  val initStateCovarianceOpt: (Array[String], Array[Double])
+  val AOpt: OptCond
+  val BOpt: OptCond
+  val HOpt: OptCond
+  val QOpt: OptCond
+  val ROpt: OptCond
+  val initStateMeanOpt: OptCond
+  val initStateCovarianceOpt: OptCond
   val parallelThreadNum: Array[Int]
   val crossValidPredictFile: String
   val foldNum: Array[Int]
@@ -115,14 +117,13 @@ case class OptimizeCond(emHid: (String, Array[Int]),
                         initStateMeanInit: GenerateCond,
                         initStateCovarianceInit: GenerateCond,
                         delta: Array[Double],
-                        AOpt: (Array[String], Array[Double]),
-                        BOpt: (Array[String], Array[Double]),
-                        HOpt: (Array[String], Array[Double]),
-                        QOpt: (Array[String], Array[Double]),
-                        ROpt: (Array[String], Array[Double]),
-                        initStateMeanOpt: (Array[String], Array[Double]),
-                        initStateCovarianceOpt: (Array[String], Array[Double]),
-                        lambdaCrossValid: Array[Double],
+                        AOpt: OptCond,
+                        BOpt: OptCond,
+                        HOpt: OptCond,
+                        QOpt: OptCond,
+                        ROpt: OptCond,
+                        initStateMeanOpt: OptCond,
+                        initStateCovarianceOpt: OptCond,
                         parallelThreadNum: Array[Int],
                         crossValidPredictFile: String) extends OptimizeCondTrait
 
@@ -153,26 +154,25 @@ object OptimizeCond extends ParamDimCond {
     val ROpt = params.getOrElse("ROpt", "")
     val initStateMeanOpt = params.getOrElse("initStateMeanOpt", "")
     val initStateCovarianceOpt = params.getOrElse("initStateCovarianceOpt", "")
-    val lambdaCrossValid = params.getOrElse("lambdaCrossValid", "")
     val parallelThreadNum = params.getOrElse("parallelThreadNum", "")
     val crossValidPredictFile = params.getOrElse("crossValidPredictFile", "")
 
     OptimizeCond(emHid, foldNum, emTime, emShallow, emRand, Ainit, Binit, Hinit, Qinit, Rinit,
       initStateMeanInit, initStateCovarianceInit, delta, AOpt, BOpt, HOpt, QOpt, ROpt,
-      initStateMeanOpt, initStateCovarianceOpt, lambdaCrossValid, parallelThreadNum, crossValidPredictFile)
+      initStateMeanOpt, initStateCovarianceOpt, parallelThreadNum, crossValidPredictFile)
   }
 }
 
 //
 case class EMCond(emTime: Int = -1,
                   delta: Double = 0.01,
-                  AOpt: (Array[String], Array[Double]) = (Array(), Array()),
-                  BOpt: (Array[String], Array[Double]) = (Array(), Array()),
-                  HOpt: (Array[String], Array[Double]) = (Array(), Array()),
-                  QOpt: (Array[String], Array[Double]) = (Array(), Array()),
-                  ROpt: (Array[String], Array[Double]) = (Array(), Array()),
-                  initStateMeanOpt: (Array[String], Array[Double]) = (Array(), Array()),
-                  initStateCovarianceOpt: (Array[String], Array[Double]) = (Array(), Array()),
+                  AOpt: OptCond = OptCond(""),
+                  BOpt: OptCond = OptCond(""),
+                  HOpt: OptCond = OptCond(""),
+                  QOpt: OptCond = OptCond(""),
+                  ROpt: OptCond = OptCond(""),
+                  initStateMeanOpt: OptCond = OptCond(""),
+                  initStateCovarianceOpt: OptCond = OptCond(""),
                   showLikelihood: Boolean = false,
                   initkf: KalmanFilter, initStateMeans: List[DenseVector[Double]],
                   initStateCovariances: List[Matrices])
@@ -206,13 +206,13 @@ case class ExperimentCond(hDim: Array[Int],
                            initStateCovarianceInit: GenerateCond,
                            delta: Array[Double],
                            fixDelta: Array[Double],
-                           AOpt: (Array[String], Array[Double]),
-                           BOpt: (Array[String], Array[Double]),
-                           HOpt: (Array[String], Array[Double]),
-                           QOpt: (Array[String], Array[Double]),
-                           ROpt: (Array[String], Array[Double]),
-                           initStateMeanOpt: (Array[String], Array[Double]),
-                           initStateCovarianceOpt: (Array[String], Array[Double]),
+                           AOpt: OptCond,
+                           BOpt: OptCond,
+                           HOpt: OptCond,
+                           QOpt: OptCond,
+                           ROpt: OptCond,
+                           initStateMeanOpt: OptCond,
+                           initStateCovarianceOpt: OptCond,
                            testSeqNum: Array[Int],
                            parallelThreadNum: Array[Int],
                            crossValidPredictFile: String,

@@ -42,32 +42,28 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
     * @return
     */
   def learn(): EMOutputs = {
-    val learnedEM = if (cond.lambdaCrossValid.length > 0) {
-      val aOpt = if (cond.AOpt._2.length > 0) cond.AOpt._2(0) else -1
-      val bOpt = if (cond.BOpt._2.length > 0) cond.BOpt._2(0) else -1
-      val hOpt = if (cond.HOpt._2.length > 0) cond.HOpt._2(0) else -1
-      val qOpt = if (cond.QOpt._2.length > 0) cond.QOpt._2(0) else -1
-      val rOpt = if (cond.ROpt._2.length > 0) cond.ROpt._2(0) else -1
-      val mOpt = if (cond.initStateMeanOpt._2.length > 0) cond.ROpt._2(0) else -1
-      val sOpt = if (cond.initStateCovarianceOpt._2.length > 0) cond.ROpt._2(0) else -1
-      cond.lambdaCrossValid.map(x => {
-        //正則化項がそれぞれx倍されるんだけど、それを組み込む（だるい）
-        if (aOpt > 0) cond.AOpt._2(0) = aOpt * x
-        if (bOpt > 0) cond.BOpt._2(0) = bOpt * x
-        if (hOpt > 0) cond.HOpt._2(0) = hOpt * x
-        if (qOpt > 0) cond.QOpt._2(0) = qOpt * x
-        if (rOpt > 0) cond.ROpt._2(0) = rOpt * x
-        if (mOpt > 0) cond.initStateMeanOpt._2(0) = mOpt * x
-        if (sOpt > 0) cond.initStateCovarianceOpt._2(0) = sOpt * x
-        learnSub()
-      }).max
-    } else learnSub()
+    val learned = cond.AOpt.regParams.foldLeft((EMOutputs(), ""), Array(-1.0)) { (s, x) =>
+      cond.AOpt.lambda = x
+      val ema = cond.BOpt.regParams.foldLeft((EMOutputs(), ""), Array(-1.0)) { (s, y) =>
+        cond.BOpt.lambda = y
+        val emb = cond.HOpt.regParams.foldLeft((EMOutputs(), ""), Array(-1.0)) { (s, z) =>
+          cond.HOpt.lambda = z
+          println("lambda A: " + x + " B: " + y + " H: " + z)
+          val emh = learnSub()
+          println("CrossValid likelihood: " + emh._1.logLikelihoods(0))
+          if (emh._1 > s._1._1) (emh, Array(z)) else s
+        }
+        if (emb._1._1 > s._1._1) (emb._1, Array(y, emb._2(0))) else s
+      }
+      if (ema._1._1 > s._1._1) (ema._1, Array(x, ema._2(0), ema._2(1))) else s
+    }
+    println("Max Lambda A: " + learned._2(0) + "B: " + learned._2(1) + "H: " + learned._2(2))
     if (cond.crossValidPredictFile != "") {
       val fp = utils.Utils.makePrintWriter(cond.crossValidPredictFile)
-      fp.print(learnedEM._2)
+      fp.print(learned._1._2)
       fp.close()
     }
-    learnedEM._1
+    learned._1._1
   }
 
   def learnSub(): (EMOutputs, String) = {
@@ -89,10 +85,9 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
   def crossValid(n: Int): (EMOutputs, String) = {
     val sb = new StringBuilder()
     val seqNum = seqs.length
-    val seqsPerFold = seqNum / cond.foldNum(0)
     val allLikelihood = (0 until cond.foldNum(0)).foldLeft(0.0) {(s, i) =>
-      val from = i * seqsPerFold
-      val until = if (i == cond.foldNum(0) - 1) seqNum else (i+1) * seqsPerFold
+      val from = seqNum * i / cond.foldNum(0)
+      val until = seqNum * (i + 1) / cond.foldNum(0)
       val validateSeqs = seqs.slice(from, until)
       val seqsWithoutOne = seqs.take(from) ::: seqs.drop(until)
       val learnedEMOutputs = learnSeveralTimes(n, seqsWithoutOne)
@@ -133,8 +128,7 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
     * 隠れ状態の次元の候補から求めるタイプ
     */
   def hidDimCandidateLearn(hids: Array[Int]): (EMOutputs, String) = {
-    val crossValidated = hids.map(crossValid(_)).max
-    crossValidated
+    hids.map(crossValid(_)).max
   }
 
   /**

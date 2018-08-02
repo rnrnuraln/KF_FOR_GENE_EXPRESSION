@@ -201,7 +201,12 @@ case class GenerateCond(s: String, m: Matrices = null, v: DenseVector[Double] = 
       case Some(f) =>
         val s = scala.io.Source.fromFile(f).getLines()
         if (s.hasNext) {
-          val d = DenseVector(s.next().split("\t").map(_.toDouble): _*)
+          val next = s.next()
+          val d = if (next == "diag") {
+            DenseVector(s.next().split("\t").map(_.toDouble): _*)
+          } else {
+            DenseVector(next.split("\t").map(_.toDouble): _*)
+          }
           Some(d)
         } else {
           println("nothing written on vector file!")

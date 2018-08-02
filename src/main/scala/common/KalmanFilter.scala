@@ -143,4 +143,20 @@ case class KalmanFilter(A: Matrices, B: Option[Matrices], H: Matrices, Q: Matric
     Array(Adif, Bdif, Hdif, Qdif, Rdif)
   }
 
+  def max: Double = {
+    Array(A.max, B.getOrElse(DenseMatrices(DenseMatrix.zeros[Double](1, 1))).max, H.max, Q.max, R.max).max
+  }
+
+}
+
+object KalmanFilter {
+  def zeros(n: Int, m: Int, l: Int): KalmanFilter = {
+    val A = DenseMatrices(DenseMatrix.zeros[Double](n, n))
+    val B = if (l == 0) None else Some(DenseMatrices(DenseMatrix.zeros[Double](n, l)))
+    val H = DenseMatrices(DenseMatrix.zeros[Double](m, n))
+    val Q = DiagMatrices(DenseVector.zeros[Double](n))
+    val R = DiagMatrices(DenseVector.zeros[Double](m))
+    KalmanFilter(A, B, H, Q, R)
+  }
+
 }
