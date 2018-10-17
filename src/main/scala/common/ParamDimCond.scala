@@ -100,6 +100,7 @@ trait OptimizeCondTrait {
   val parallelThreadNum: Array[Int]
   val crossValidPredictFile: String
   val foldNum: Array[Int]
+  val seqRegularization: Boolean
 }
 
 //Optimizationの実験条件
@@ -125,7 +126,8 @@ case class OptimizeCond(emHid: (String, Array[Int]),
                         initStateMeanOpt: OptCond,
                         initStateCovarianceOpt: OptCond,
                         parallelThreadNum: Array[Int],
-                        crossValidPredictFile: String) extends OptimizeCondTrait
+                        crossValidPredictFile: String,
+                        seqRegularization: Boolean) extends OptimizeCondTrait
 
 /**
   *
@@ -156,10 +158,11 @@ object OptimizeCond extends ParamDimCond {
     val initStateCovarianceOpt = params.getOrElse("initStateCovarianceOpt", "")
     val parallelThreadNum = params.getOrElse("parallelThreadNum", "")
     val crossValidPredictFile = params.getOrElse("crossValidPredictFile", "")
+    val seqRegularization = params.getOrElse("seqRegularization", "")
 
     OptimizeCond(emHid, foldNum, emTime, emShallow, emRand, Ainit, Binit, Hinit, Qinit, Rinit,
       initStateMeanInit, initStateCovarianceInit, delta, AOpt, BOpt, HOpt, QOpt, ROpt,
-      initStateMeanOpt, initStateCovarianceOpt, parallelThreadNum, crossValidPredictFile)
+      initStateMeanOpt, initStateCovarianceOpt, parallelThreadNum, crossValidPredictFile, seqRegularization)
   }
 }
 
@@ -175,7 +178,8 @@ case class EMCond(emTime: Int = -1,
                   initStateCovarianceOpt: OptCond = OptCond(""),
                   showLikelihood: Boolean = false,
                   initkf: KalmanFilter, initStateMeans: List[DenseVector[Double]],
-                  initStateCovariances: List[Matrices])
+                  initStateCovariances: List[Matrices],
+                  seqRegularization: Boolean)
 
 //
 case class ExperimentCond(hDim: Array[Int],
@@ -215,6 +219,7 @@ case class ExperimentCond(hDim: Array[Int],
                            initStateCovarianceOpt: OptCond,
                            testSeqNum: Array[Int],
                            parallelThreadNum: Array[Int],
+                           seqRegularization: Boolean,
                            crossValidPredictFile: String,
                            shFile: String,
                            jobId: String,
@@ -261,6 +266,7 @@ object ExperimentCond extends ParamDimCond {
     val initStateCovarianceOpt = params.getOrElse("initStateCovarianceOpt", "")
     val testSeqNum = params.getOrElse("testSeqNum", "")
     val parallelThreadNum = params.getOrElse("parallelThreadNum", "")
+    val seqRegularization = params.getOrElse("seqRegularization", "")
     val crossValidPredictFile = params.getOrElse("crossValidPredictFile", "")
     val shFile = params.getOrElse("shFile", "")
     val jobId = params.getOrElse("jobId", "")
@@ -269,6 +275,19 @@ object ExperimentCond extends ParamDimCond {
       initStateMeanGen, initStateCovarianceGen, controlGen, emHid, foldNum, emTime, emShallow, emRand, Ainit,
       Binit, Hinit, Qinit, Rinit, initStateMeanInit, initStateCovarianceInit, delta, fixDelta,
       AOpt, BOpt, HOpt, QOpt, ROpt, initStateMeanOpt, initStateCovarianceOpt, testSeqNum,
-      parallelThreadNum, crossValidPredictFile, shFile, jobId, version)
+      parallelThreadNum, seqRegularization, crossValidPredictFile, shFile, jobId, version)
+  }
+}
+
+case class PredictCond(mode: String,
+                       forwardEstimateNum: Array[Int] //何個先まで見るか
+                      ) extends ParamDimCond
+
+object PredictCond extends ParamDimCond {
+  def apply(paramFile: String): PredictCond = {
+    val params = readParams(paramFile)
+    val mode = params.getOrElse("mode", "")
+    val forwardEstimateNum = params.getOrElse("forwardEstimateNum", "1")
+    PredictCond(mode, forwardEstimateNum)
   }
 }

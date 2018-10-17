@@ -159,4 +159,15 @@ object KalmanFilter {
     KalmanFilter(A, B, H, Q, R)
   }
 
+  def random(n: Int, m: Int, l: Int): KalmanFilter = {
+    val generateGauss = GenerateCond(s = "gaussian,0.0 1.0")
+    val generateGamma = GenerateCond(s = "gamma,2.0 2.0")
+    val A = generateGauss.copy(seed = 0).makeMatrixForA(n)
+    val B = generateGauss.copy(seed = 1).makeMatrixForB(n, l)
+    val H = generateGauss.copy(seed = 2).makeMatrixForH(m, n)
+    val Q = generateGamma.copy(seed = 3).makeMatrixForCov(n)
+    val R = generateGamma.copy(seed = 4).makeMatrixForCov(m)
+    KalmanFilter(A, B, H, Q, R)
+  }
+
 }

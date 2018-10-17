@@ -21,6 +21,7 @@ RealEstimation.ipynb
 .settings/
 *.ipynb
 experiment_condition
+src/analysis/
 
 [core]
     excludesfile = /Users/tara/.gitignore_global

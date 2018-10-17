@@ -103,18 +103,19 @@ case class Forward(kf: KalmanFilter, seqs: Array[common.ConObs],
   def predictsWithCovariance(): Array[(Matrices, DenseVector[Double])] = run.map(x => {
     val invCD = (x.C.inv + HRH).inv
     val K = invR - HR.t * invCD * HR
-    (K, K.inv * kf.H * x.C * x.B)
+    (K, K.inv * HR.t * invCD * x.B)
   })
 
   //covarianceを用いない観測変数の予測。時間に気をつけるのじゃ。t = 0 ~ Tまで
-  def predicts: Array[DenseVector[Double]] = run.map(x => kf.H * x.C * x.B)
+  def predicts(): Array[DenseVector[Double]] =
+      run.map(x => kf.H * x.C * x.B)
 
   //予測値と実測値を比較し、時系列上の相関係数を求める。
   //sum(z(i+1) - z(i))(z2(i+1)-z(i))/sum(z(i+1) - z(i))^2を求める
   //prevsの1番目には相関係数の分子、二番目には分母、z_None: Option[DenseVector[Double]]となっているとこには前の値が入る
   //相関係数は、ベクトルの各値ごとに求めるものとする。
   def predCorrelation: DenseVector[Double] = {
-    val prevs = predicts.zip(seqs).foldLeft(DenseVector.zeros[Double](m), DenseVector.zeros[Double](m), None: Option[DenseVector[Double]]) { (s, x) =>
+    val prevs = predicts().zip(seqs).foldLeft(DenseVector.zeros[Double](m), DenseVector.zeros[Double](m), None: Option[DenseVector[Double]]) { (s, x) =>
       x._2.observe match {
         case Some(o) =>
           s._3 match {
@@ -134,6 +135,41 @@ case class Forward(kf: KalmanFilter, seqs: Array[common.ConObs],
 
   //prediction correlation
   def predCorrEval: Double = predCorrelation.foldLeft(0.0) { (s, x) => s + (x - 1) * (x - 1) }
+
+  //n個先をpredictしたものをそれぞれ出力。予測値の平均と分散のペアとして出力
+  def predictObs(n: Int): Array[(DenseVector[Double], DenseVector[Double])] = {
+    val start = {
+      def calcStart(i: Int): Int = {
+        seqs(i).observe match {
+          case Some(o) => i
+          case None => calcStart(i + 1)
+        }
+      }
+      calcStart(0) + 1
+    }
+    def predictLoop(i: Int, loopNum: Int, prev: ForwardGaussian): (DenseVector[Double], DenseVector[Double]) = {
+      if (loopNum < n) {
+        //update forward gaussian with no observation
+        val C0_D1 = prev.C
+        val Bu = seqs(i + loopNum - 1).control match {
+          case Some(c) => kf.B.getOrElse(DenseMatrices(DenseMatrix.zeros[Double](n, kf.l))) * c;
+          case None => DenseVector.zeros[Double](n)
+        }
+        val C = kf.Q + kf.A * C0_D1 * kf.A.t
+        val invC = C.inv
+        val B = invC * (Bu + kf.A * prev.C * prev.B)
+        predictLoop(i, loopNum+1, ForwardGaussian(B, C))
+      } else {
+        val Kinv = kf.R + kf.H * prev.C * kf.H.t
+        (kf.H * prev.C * prev.B, Kinv.toDiagVector)
+      }
+    }
+    run.slice(start, T-n+1).zip(start until T-n+1).map(x => predictLoop(x._2, 1, x._1))
+  }
+
+  //using Kalman Filter, estimate the hidden variables and their variance
+  def estimateHid(): Array[(DenseVector[Double], DenseVector[Double])] = run.map(x => (x.C * x.B, x.C.toDiagVector))
+
 }
 
 /**

@@ -91,14 +91,22 @@ object Evaluate {
              * Evaluationは、尤度、予測、真の値と推定値とのズレなどによって行う
              * 分散とかも考慮したevaluationもやりたい。
              */
+           regularizedSeqs2 = seqs2.map(x => {
+             x.map(y => {
+               y.observe match {
+                 case Some(o) => ConObs(y.control, Some((o - optimized.allMean) /:/ optimized.allStd))
+                 case None => ConObs(y.control, y.observe)
+               }
+             })
+           })
            calcTime = end - start
            optimizeN = optimized.kf.n
-           likelipreds = seqs2.foldLeft(0.0, 0.0) {(s, seq) =>
+           likelipreds = regularizedSeqs2.foldLeft(0.0, 0.0) {(s, seq) =>
              val fw = Forward(optimized.kf, seq, optimized.initStateMeanMean, optimized.initStateCovarianceMean)
              (s._1 + fw.logLikelihood, s._2 + fw.predCorrEval)
            }
            //真の値でのlikelihood
-           realLikepreds = seqs2.zip(initStateMeans.zip(initStateCovariances)).foldLeft(0.0, 0.0) { (s, seq) =>
+           realLikepreds = regularizedSeqs2.zip(initStateMeans.zip(initStateCovariances)).foldLeft(0.0, 0.0) { (s, seq) =>
              val fw = Forward(kf, seq._1, seq._2._1, seq._2._2)
              (s._1 + fw.logLikelihood, s._2 + fw.predCorrEval)
            }

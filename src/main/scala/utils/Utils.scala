@@ -1,7 +1,7 @@
 package utils
 import java.io.PrintWriter
 
-import breeze.linalg._
+import breeze.linalg.{DenseVector, _}
 import common.{DenseMatrices, DiagMatrices}
 import common.ConObs
 
@@ -44,7 +44,7 @@ object Utils {
     }
   }
 
-  def makeSeqs(input: String): List[Array[ConObs]] = {
+  def readSeqs(input: String): List[Array[ConObs]] = {
     val source = scala.io.Source.fromFile(input).getLines()
     val header = source.next().split("\t")
     val m = header.count(x => x.startsWith("obs"))
@@ -93,6 +93,37 @@ object Utils {
       val dif = Math.abs(x._1 - x._2) / (Math.abs(x._1) + fixDelta)
       if (dif > max) dif else max
     }
+  }
+
+  def writeSeqs(seqs: Seq[Array[(DenseVector[Double], Option[DenseVector[Double]])]], fileName: String) = {
+    val fp = Utils.makePrintWriter(fileName)
+    val sb = new StringBuilder()
+    val hDim = seqs(0)(0)._1.length
+    val oDim = {
+      def calcOdim(n: Int): Int = {
+        seqs(0)(n)._2 match {
+          case Some(o) => o.length
+          case None => calcOdim(n+1)
+        }
+      }
+      calcOdim(0)
+    }
+    sb.append((1 to hDim).foldLeft("") { (str, x) => str + "hid" + x + "\t"})
+    sb.append((1 to oDim).foldLeft("") { (str, x) => str + "obs" + x + "\t"})
+    sb.append("type" + "\n")
+    seqs.zipWithIndex.foreach(x => {
+      val seqNumber = x._2
+      x._1.foreach(y => {
+        val obs = y._2 match {
+          case Some(o) => utils.Utils.vectorTostring(o)
+          case None => (1 to oDim).foldLeft("") { (str, x) => str + "\t"}
+        }
+        sb.append(utils.Utils.vectorTostring(y._1) + "\t" + obs + "\t" + (seqNumber + 1) + "\n")
+      })
+      println("ahoaho")
+    })
+    println(sb.toString())
+    fp.print(sb.toString())
   }
 
 }

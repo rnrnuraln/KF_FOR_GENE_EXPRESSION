@@ -33,7 +33,7 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
     AOpt = cond.AOpt, BOpt = cond.BOpt, HOpt = cond.HOpt, QOpt = cond.QOpt,
     ROpt = cond.ROpt, initStateMeanOpt = cond.initStateMeanOpt,
     initStateCovarianceOpt = cond.initStateCovarianceOpt,
-    initkf = null, initStateMeans = List(), initStateCovariances = List())
+    initkf = null, initStateMeans = List(), initStateCovariances = List(), seqRegularization = cond.seqRegularization)
 
   /**
     * how to
@@ -91,12 +91,21 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
       val validateSeqs = seqs.slice(from, until)
       val seqsWithoutOne = seqs.take(from) ::: seqs.drop(until)
       val learnedEMOutputs = learnSeveralTimes(n, seqsWithoutOne)
-      val fws = validateSeqs.map(seq => Forward(learnedEMOutputs._1.kf, seq, learnedEMOutputs._1.initStateMeanMean, learnedEMOutputs._1.initStateCovarianceMean))
+      val regularizedValidateSeqs = validateSeqs.map(x => {
+        x.map(y => {
+          y.observe match {
+            case Some(o) => ConObs(y.control, Some((o - learnedEMOutputs._1.allMean) /:/ learnedEMOutputs._1.allStd))
+            case None => ConObs(y.control, y.observe)
+          }
+        })
+      })
+      val fws = regularizedValidateSeqs.map(seq => Forward(learnedEMOutputs._1.kf, seq, learnedEMOutputs._1.initStateMeanMean, learnedEMOutputs._1.initStateCovarianceMean))
       if (cond.crossValidPredictFile != "") {
         val predicts: Seq[Array[DenseVector[Double]]] = fws.map(x => x.predicts)
         predicts.foreach(array => {
           array.foreach(vector => {
-            sb.append(utils.Utils.vectorTostring(vector) + "\n")
+            val regularizedVector = vector *:* learnedEMOutputs._1.allStd + learnedEMOutputs._1.allMean
+            sb.append(utils.Utils.vectorTostring(regularizedVector) + "\n")
           })
         })
       }
@@ -139,7 +148,8 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
   def learnSeveralTimes(n: Int, seqs: List[Array[ConObs]]): (EMOutputs, String) = {
     val emRandPar = (0 until cond.emRand(0)).par
     emRandPar.tasksupport = new scala.collection.parallel.ForkJoinTaskSupport(new scala.concurrent.forkjoin.ForkJoinPool(cond.parallelThreadNum(0)))
-    val maxEMOutputs = emRandPar.map(x => {
+    val emNum = if (cond.emRand(0) < 20) cond.emRand(0) else 20
+    val emOutputs = emRandPar.map(x => {
       val kf = KalmanFilter(cond.Ainit.copy().makeMatrixForA(n), cond.Binit.copy().makeMatrixForB(n, l), cond.Hinit.copy().makeMatrixForH(m, n), cond.Qinit.copy().makeMatrixForCov(n), cond.Rinit.copy().makeMatrixForCov(m))
       val initStateMeans = cond.initStateMeanInit.copy().makeInitStateMeanList(n, seqs.length)
       val initStateCovariances = cond.initStateCovarianceInit.copy().makeInitStateCovarianceList(n, seqs.length)
@@ -147,7 +157,10 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
       val emAlgorithm = EMAlgorithm(seqs, emCond)
       val learned = emAlgorithm.learnBasis()
       learned
-    }).max
+    }).toArray.sorted.reverse.slice(1, emNum)
+    //log likelihoodを順番に出力してみる
+    println(emOutputs.foldLeft("RandLogLikelihoods:") {(s, x) => s + "\t" + x.logLikelihoods(0) })
+    val maxEMOutputs = emOutputs(0)
     val emCond = emCondCommon.copy(emTime = cond.emTime(0), initkf = maxEMOutputs.kf, initStateMeans = maxEMOutputs.initStateMeans, initStateCovariances = maxEMOutputs.initStateCovariance)
     val emAlgorithm = EMAlgorithm(seqs, emCond)
     println("log: \n" + emAlgorithm.learnBasis())
@@ -160,7 +173,7 @@ object Optimize {
   def learn(inputSeqs: String, output: String, condition: String): Unit = {
     val basedir = Paths.get(output)
     if (Files.notExists(basedir)) Files.createFile(basedir)
-    val seqs = Utils.makeSeqs(inputSeqs)
+    val seqs = Utils.readSeqs(inputSeqs)
     val optCond = OptimizeCond.apply(condition)
     val optimize = new Optimize(seqs, optCond)
     val outputs = optimize.learn()

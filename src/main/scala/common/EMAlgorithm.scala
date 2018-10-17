@@ -35,13 +35,14 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
     s + x.count(y => y.observe.isDefined)
   }
 
-  lazy val allDataMean = seqs.foldLeft(DenseVector.zeros[Double](m)) {(s, x) =>
+  val allDataMean = seqs.foldLeft(DenseVector.zeros[Double](m)) {(s, x) =>
     s + x.foldLeft(DenseVector.zeros[Double](m)) {(s2, y) =>
       s2 + y.observe.getOrElse(DenseVector.zeros[Double](m))
     }
   } * (1.0 / dataSize)
 
-  lazy val allDataVariance = seqs.foldLeft(DenseVector.zeros[Double](m)) {(s, x) =>
+
+  val allDataVariance = seqs.foldLeft(DenseVector.zeros[Double](m)) {(s, x) =>
     s + x.foldLeft(DenseVector.zeros[Double](m)) {(s2, y) =>
       y.observe match {
         case Some(o) => s2 + (o - allDataMean) *:* (o - allDataMean)
@@ -49,6 +50,20 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
       }
     }
   } * (1.0 / dataSize)
+
+  val allDataStd = allDataVariance.map(x => Math.sqrt(x))
+
+  val regularizedSeqs: List[Array[common.ConObs]] = seqs.map(x => {
+    x.map(y => {
+      y.observe match {
+        case Some(o) => ConObs(y.control, Some((o - allDataMean) /:/ allDataStd))
+        case None => ConObs(y.control, y.observe)
+      }
+    })
+  })
+
+  val trainSeqs: List[Array[common.ConObs]] = if (cond.seqRegularization) regularizedSeqs else seqs
+
 
   /**
     * Since we cannot update all parameters simultaneously, we have to define which parameters be updated when updating.
@@ -111,10 +126,10 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
   def learnBasis(): EMOutputs = {
     val stopCalcVal = 1000.0// 正則化項こそあれ、あまりに大きい項が出てきた場合はそこで打ち止め。ここではとりあえず1000以上が出てきたらやめる方針で
     def learnSub(prevOutputs: EMOutputs, i: Int, turn: TurnForEM): EMOutputs = {
-      val seqsWithInits = seqs.zip(prevOutputs.initStateMeans.zip(prevOutputs.initStateCovariance))
+      val trainSeqsWithInits = trainSeqs.zip(prevOutputs.initStateMeans.zip(prevOutputs.initStateCovariance))
       // Kalman smoothing using forward and backward algorithm
-      val forwards = seqsWithInits.map(x => Forward(prevOutputs.kf, x._1, x._2._1, x._2._2))
-      val backwards = seqsWithInits.map(x => Backward(prevOutputs.kf, x._1, x._2._1, x._2._2))
+      val forwards = trainSeqsWithInits.map(x => Forward(prevOutputs.kf, x._1, x._2._1, x._2._2))
+      val backwards = trainSeqsWithInits.map(x => Backward(prevOutputs.kf, x._1, x._2._1, x._2._2))
       val emDtos = obtainEMDto(forwards.map(_.run).zip(backwards.map(_.run)), prevOutputs.kf)
 
       val outputs = updateParams(emDtos, prevOutputs, turn)
@@ -131,7 +146,9 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
       if (i < N) initTurn(i+1, N, turn.rotate()) else turn
     }
     val turn = initTurn(0, (Math.random() * 6).toInt, new TurnForEM().rotate())
-    learnSub(EMOutputs(cond.initkf, List(Double.MinValue), cond.initStateMeans, cond.initStateCovariances), 0, turn)
+    val mean = if (cond.seqRegularization) allDataMean else DenseVector.zeros[Double](m)
+    val std = if (cond.seqRegularization) allDataStd else DenseVector.ones[Double](m)
+    learnSub(EMOutputs(cond.initkf, List(Double.MinValue), cond.initStateMeans, cond.initStateCovariances, mean, std), 0, turn)
   }
 
   /**
@@ -148,7 +165,7 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
     val HR = kf.H.t * invR
     val D = HR * kf.H
     val D_ACA = D + ACA
-    fbSeq.zip(seqs).map(x => {
+    fbSeq.zip(trainSeqs).map(x => {
       val fRun = x._1._1
       val bRun = x._1._2
       val seq = x._2
@@ -372,7 +389,7 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
   //S^{-1}(J - XK)のうち、Sは既に求められているので、JとKさえ求めれば良い。
   def getCoefficientDerivative(emDtos: Seq[Array[EMDto]], derivativeFunc: (Array[EMDto], Array[ConObs], Int) => (Matrices, Matrices), N: Int, M: Int): (Matrices, Matrices) = {
     val zeros: (Matrices, Matrices) = (DenseMatrices(DenseMatrix.zeros[Double](N, M)), DenseMatrices(DenseMatrix.zeros[Double](M, M)))
-    emDtos.zip(seqs).map(x => {
+    emDtos.zip(trainSeqs).map(x => {
       val em = x._1
       val seq = x._2
       val len = em.length
@@ -388,7 +405,7 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
   //Sym(nS - L)となるので、nとLさえ求められれば良い。
   def getCovarianceDerivative(emDtos: Seq[Array[EMDto]], derivativeFunc: (Array[EMDto], Array[ConObs], Int) => (Int, Matrices), N: Int): (Int, Matrices) = {
     val zeros: (Int, Matrices) = (0, DiagMatrices(DenseVector.zeros[Double](N)))
-    emDtos.zip(seqs).map(x => {
+    emDtos.zip(trainSeqs).map(x => {
       val em = x._1
       val seq = x._2
       val len = em.length
@@ -541,9 +558,11 @@ case class EMDto(alpha: Matrices = null, beta: DenseVector[Double] = null,
   * @param logLikelihoods
   * @param initStateMeans
   * @param initStateCovariance
+  *
   */
 case class EMOutputs(kf: KalmanFilter = null, logLikelihoods: List[Double] = List(Double.MinValue),
-                     initStateMeans: List[DenseVector[Double]] = List(), initStateCovariance: List[Matrices] = List())
+                     initStateMeans: List[DenseVector[Double]] = List(), initStateCovariance: List[Matrices] = List(),
+                     allMean: DenseVector[Double] = DenseVector(), allStd: DenseVector[Double]  = DenseVector[Double]())
   extends Ordered[EMOutputs] {
   //logLikelihoodを除いた部分の差のnorm
   def calcDif(emOutputs: EMOutputs): Double = {
@@ -568,7 +587,55 @@ case class EMOutputs(kf: KalmanFilter = null, logLikelihoods: List[Double] = Lis
     val kfSt = kf.toString()
     val covSt = initStateCovarianceMean.toString()
     val meanSt = utils.Utils.vectorTostring(initStateMeanMean)
-    kfSt + "\n\n" + logLikelihoods(0) + "\n\n" + meanSt + "\n\n" + covSt
+    val allMeanSt = utils.Utils.vectorTostring(allMean)
+    val allVarianceSt = utils.Utils.vectorTostring(allStd)
+    kfSt + "\n\n" + logLikelihoods(0) + "\n\n" + meanSt + "\n\n" + covSt + "\n\n" + allMeanSt + "\n\n" + allVarianceSt
   }
 }
 
+object EMOutputs {
+  //外部からファイルによるinputでEMOutputを作成 skip行飛ばす
+  def apply(input: String, skip: Int): EMOutputs = {
+    val source = scala.io.Source.fromFile(input).getLines()
+    (0 until skip).foreach(x => source.next()) //n回skip
+    val n = source.next().toInt
+    val m = source.next().toInt
+    val l = source.next().toInt
+    source.next()
+    //対角行列の時の対処がめんどくさいですね……
+    def readMatrices(matrixList: List[Array[Double]], rowNum: Int): Matrices = {
+      val s = source.next()
+      if (s != "") {
+        val ss = s.split("\t").map(_.toDouble)
+        readMatrices(ss :: matrixList, rowNum)
+      } else {
+        if (matrixList.length == rowNum) {
+          DenseMatrices(DenseMatrix(matrixList.reverse: _*))
+        } else {
+          //対角行列の場合
+          DiagMatrices(DenseVector(matrixList(0): _*))
+        }
+      }
+    }
+    def readVector(): DenseVector[Double] = {
+      val vector = source.next().split("\t").map(_.toDouble)
+      source.next()
+      DenseVector(vector: _*)
+    }
+    val A = readMatrices(List(), n)
+    val B = if (l == 0) {source.next(); None} else Some(readMatrices(List(), n))
+    val H = readMatrices(List(), m)
+    val Q = readMatrices(List(), n)
+    val R = readMatrices(List(), m)
+    val kf = KalmanFilter(A, B, H, Q, R)
+    source.next()
+    val logLikelihood = source.next().toDouble
+    source.next()
+    val mu = readVector()
+    val S = readMatrices(List(), n)
+    source.next()
+    val mean = readVector()
+    val std = readVector()
+    EMOutputs(kf, List(logLikelihood), List(mu), List(S), mean, std)
+  }
+}
