@@ -148,7 +148,10 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
     val turn = initTurn(0, (Math.random() * 6).toInt, new TurnForEM().rotate())
     val mean = if (cond.seqRegularization) allDataMean else DenseVector.zeros[Double](m)
     val std = if (cond.seqRegularization) allDataStd else DenseVector.ones[Double](m)
-    learnSub(EMOutputs(cond.initkf, List(Double.MinValue), cond.initStateMeans, cond.initStateCovariances, mean, std), 0, turn)
+    //rのregularization
+    val r = if (cond.seqRegularization) cond.initkf.R * DiagMatrices(allDataVariance).inv else cond.initkf.R
+    val kf = cond.initkf.copy(R = r)
+    learnSub(EMOutputs(kf, List(Double.MinValue), cond.initStateMeans, cond.initStateCovariances, mean, std), 0, turn)
   }
 
   /**
@@ -589,7 +592,7 @@ case class EMOutputs(kf: KalmanFilter = null, logLikelihoods: List[Double] = Lis
     val meanSt = utils.Utils.vectorTostring(initStateMeanMean)
     val allMeanSt = utils.Utils.vectorTostring(allMean)
     val allVarianceSt = utils.Utils.vectorTostring(allStd)
-    kfSt + "\n\n" + logLikelihoods(0) + "\n\n" + meanSt + "\n\n" + covSt + "\n\n" + allMeanSt + "\n\n" + allVarianceSt
+    kfSt + "\n\n" + logLikelihoods(0) + "\n\n" + meanSt + "\n\n" + covSt + "\n\n" + allMeanSt + "\n\n" + allVarianceSt + "\n"
   }
 }
 
@@ -619,7 +622,9 @@ object EMOutputs {
     }
     def readVector(): DenseVector[Double] = {
       val vector = source.next().split("\t").map(_.toDouble)
-      source.next()
+      if (source.hasNext) {
+        source.next()
+      }
       DenseVector(vector: _*)
     }
     val A = readMatrices(List(), n)

@@ -81,7 +81,7 @@ trait OptimizeCondTrait {
   val emHid: (String, Array[Int])
   val emTime: Array[Int]
   val emShallow: Array[Int]
-  val emRand: Array[Int]
+  val emRand: Array[Double]
   val Ainit: GenerateCond
   val Binit: GenerateCond
   val Hinit: GenerateCond
@@ -109,7 +109,7 @@ case class OptimizeCond(emHid: (String, Array[Int]),
                         foldNum: Array[Int],
                         emTime: Array[Int],
                         emShallow: Array[Int],
-                        emRand: Array[Int],
+                        emRand: Array[Double],
                         Ainit: GenerateCond,
                         Binit: GenerateCond,
                         Hinit: GenerateCond,
@@ -200,7 +200,7 @@ case class ExperimentCond(hDim: Array[Int],
                            foldNum: Array[Int],
                            emTime: Array[Int],
                            emShallow: Array[Int],
-                           emRand: Array[Int],
+                           emRand: Array[Double],
                            Ainit: GenerateCond,
                            Binit: GenerateCond,
                            Hinit: GenerateCond,

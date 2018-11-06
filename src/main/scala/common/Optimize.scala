@@ -146,25 +146,39 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
     * @return
     */
   def learnSeveralTimes(n: Int, seqs: List[Array[ConObs]]): (EMOutputs, String) = {
-    val emRandPar = (0 until cond.emRand(0)).par
-    emRandPar.tasksupport = new scala.collection.parallel.ForkJoinTaskSupport(new scala.concurrent.forkjoin.ForkJoinPool(cond.parallelThreadNum(0)))
-    val emNum = if (cond.emRand(0) < 20) cond.emRand(0) else 20
-    val emOutputs = emRandPar.map(x => {
-      val kf = KalmanFilter(cond.Ainit.copy().makeMatrixForA(n), cond.Binit.copy().makeMatrixForB(n, l), cond.Hinit.copy().makeMatrixForH(m, n), cond.Qinit.copy().makeMatrixForCov(n), cond.Rinit.copy().makeMatrixForCov(m))
-      val initStateMeans = cond.initStateMeanInit.copy().makeInitStateMeanList(n, seqs.length)
-      val initStateCovariances = cond.initStateCovarianceInit.copy().makeInitStateCovarianceList(n, seqs.length)
-      val emCond = emCondCommon.copy(emTime = cond.emShallow(0), initkf = kf, initStateMeans = initStateMeans, initStateCovariances = initStateCovariances)
-      val emAlgorithm = EMAlgorithm(seqs, emCond)
-      val learned = emAlgorithm.learnBasis()
-      learned
-    }).toArray.sorted.reverse.slice(1, emNum)
+    def learnSeveralTimesSub(iterNum: Int, emOutputList: List[EMOutputs]): (EMOutputs, String) = {
+      //処理する
+      val randNum: Int = (cond.emRand(0) * Math.pow(2, iterNum - 1)).toInt
+      val emRandPar = (0 until randNum).par
+      emRandPar.tasksupport = new scala.collection.parallel.ForkJoinTaskSupport(new scala.concurrent.forkjoin.ForkJoinPool(cond.parallelThreadNum(0)))
+      val emNum = if (randNum < 5) randNum else 5
+      val emOutputs = emRandPar.map(x => {
+        val kf = KalmanFilter(cond.Ainit.copy().makeMatrixForA(n), cond.Binit.copy().makeMatrixForB(n, l), cond.Hinit.copy().makeMatrixForH(m, n), cond.Qinit.copy().makeMatrixForCov(n), cond.Rinit.copy().makeMatrixForCov(m))
+        val initStateMeans = cond.initStateMeanInit.copy().makeInitStateMeanList(n, seqs.length)
+        val initStateCovariances = cond.initStateCovarianceInit.copy().makeInitStateCovarianceList(n, seqs.length)
+        val emCond = emCondCommon.copy(emTime = cond.emShallow(0), initkf = kf, initStateMeans = initStateMeans, initStateCovariances = initStateCovariances)
+        val emAlgorithm = EMAlgorithm(seqs, emCond)
+        val learned = emAlgorithm.learnBasis()
+        learned
+      }).toList.sorted.reverse.take(emNum)
+      val newEmOutputs = (emOutputs ::: emOutputList).sorted.reverse.take(emNum)
+      val meanNum = 3 //meanNum個分の平均をとって、topのloglikelihoodとの差分を比較、それが十分小さければ計算をやめる
+      val maxLikelihood = newEmOutputs(0).logLikelihoods(0)
+      val mean = (newEmOutputs.take(meanNum + 1).map(x => x.logLikelihoods(0)).sum - maxLikelihood) / meanNum
+      if (iterNum >= cond.emRand(1) || (mean - maxLikelihood) / maxLikelihood < cond.emRand(2)) {
+        println(newEmOutputs.foldLeft("RandLogLikelihoods:") {(s, x) => s + "\t" + x.logLikelihoods(0) })
+        println("final RandNum: " + (randNum * 2 - cond.emRand(0)).toInt)
+        val maxEMOutputs = newEmOutputs(0)
+        val emCond = emCondCommon.copy(emTime = cond.emTime(0), initkf = maxEMOutputs.kf, initStateMeans = maxEMOutputs.initStateMeans, initStateCovariances = maxEMOutputs.initStateCovariance)
+        val emAlgorithm = EMAlgorithm(seqs, emCond)
+        println("log: \n" + emAlgorithm.learnBasis())
+        (emAlgorithm.learnBasis(), "")
+      } else {
+        learnSeveralTimesSub(iterNum + 1, newEmOutputs)
+      }
+    }
+    learnSeveralTimesSub(1, List())
     //log likelihoodを順番に出力してみる
-    println(emOutputs.foldLeft("RandLogLikelihoods:") {(s, x) => s + "\t" + x.logLikelihoods(0) })
-    val maxEMOutputs = emOutputs(0)
-    val emCond = emCondCommon.copy(emTime = cond.emTime(0), initkf = maxEMOutputs.kf, initStateMeans = maxEMOutputs.initStateMeans, initStateCovariances = maxEMOutputs.initStateCovariance)
-    val emAlgorithm = EMAlgorithm(seqs, emCond)
-    println("log: \n" + emAlgorithm.learnBasis())
-    (emAlgorithm.learnBasis(), "")
   }
 
 }

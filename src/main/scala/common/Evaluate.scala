@@ -78,7 +78,7 @@ object Evaluate {
            seqNum <- params.seqNum
            emTime <- params.emTime
            emShallow <- params.emShallow
-           emRand <- params.emRand
+           emRand = params.emRand(0)
            delta <- params.delta
            optimizeCond = optimizeParamsCommon.copy(emHid = newEMHid, emTime = Array(emTime), emShallow = Array(emShallow), emRand = Array(emRand), delta = Array(delta),
              Ainit = aInit, Binit = bInit, Hinit = hInit, Qinit = qInit, Rinit = rInit, initStateMeanInit = initInitStateMean, initStateCovarianceInit = initInitStateCovariance)
@@ -117,7 +117,7 @@ object Evaluate {
            initStateCovarianceDif = if (optimizeN != n) -1.0 else initStateCovariances.zip(optimized.initStateCovariance).map(x => x._1.maxDif(x._2, fixDelta)).max
            outputParams = ExperimentOutputCond(
              hDim = n, cDim = l, oDim = m, seqNum = seqNum, seqLen = seqLen, emHidCond = params.emHid._1, emHidDim = optimizeN, foldNum = params.foldNum(0),
-             emTime = emTime, emShallow = emShallow, emRand = emRand, delta = delta, fixDelta = fixDelta, Aerror = kfDif(0), Berror = kfDif(1), Herror = kfDif(2), Qerror = kfDif(3), Rerror = kfDif(4),
+             emTime = emTime, emShallow = emShallow, emRand = emRand.toInt, delta = delta, fixDelta = fixDelta, Aerror = kfDif(0), Berror = kfDif(1), Herror = kfDif(2), Qerror = kfDif(3), Rerror = kfDif(4),
              initStateMeanError = initStateMeanDif, initStateCovarianceError = initStateCovarianceDif, calcTime = calcTime, logLikelihood = likelipreds._1, predCorr = likelipreds._2,
              realLikelihood = realLikepreds._1, realCorrPred = realLikepreds._2, testSeqNum = testSeqNum, parallelThreadNum = params.parallelThreadNum(0), shFile = params.shFile, jobId = params.jobId, version = params.version)
       } yield outputParams.toString()
