@@ -146,7 +146,7 @@ case class DenseMatrices(denseMatrix: DenseMatrix[Double] = null) extends Matric
 
   def /(d: Double) = DenseMatrices(denseMatrix / d)
 
-  override def operatorNorm: Double = {
+  def operatorNorm: Double = {
     if (denseMatrix.valuesIterator.exists(_.isNaN)) {
       println("m: " + denseMatrix + "end\n")
       -1.0
@@ -222,7 +222,7 @@ case class DiagMatrices(diagVector: DenseVector[Double] = null) extends Matrices
 
   def /(d: Double) = DiagMatrices(diagVector / d)
 
-  override def operatorNorm: Double = diagVector.foldLeft(Double.MinValue) { (s, x) => if (s > x) s else x }
+  def operatorNorm: Double = diagVector.foldLeft(Double.MinValue) { (s, x) => if (s > x) s else x }
 
   def \(m: Matrices): Matrices = DenseMatrices(diag(diagVector) \ m.toDenseMatrix)
 

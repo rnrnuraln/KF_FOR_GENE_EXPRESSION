@@ -127,7 +127,8 @@ case class OptimizeCond(emHid: (String, Array[Int]),
                         initStateCovarianceOpt: OptCond,
                         parallelThreadNum: Array[Int],
                         crossValidPredictFile: String,
-                        seqRegularization: Boolean) extends OptimizeCondTrait
+                        seqRegularization: Boolean,
+                        showLikelihood: Boolean) extends OptimizeCondTrait
 
 /**
   *
@@ -159,10 +160,11 @@ object OptimizeCond extends ParamDimCond {
     val parallelThreadNum = params.getOrElse("parallelThreadNum", "")
     val crossValidPredictFile = params.getOrElse("crossValidPredictFile", "")
     val seqRegularization = params.getOrElse("seqRegularization", "")
+    val showLikelihood = params.getOrElse("showLikelihood", "")
 
     OptimizeCond(emHid, foldNum, emTime, emShallow, emRand, Ainit, Binit, Hinit, Qinit, Rinit,
       initStateMeanInit, initStateCovarianceInit, delta, AOpt, BOpt, HOpt, QOpt, ROpt,
-      initStateMeanOpt, initStateCovarianceOpt, parallelThreadNum, crossValidPredictFile, seqRegularization)
+      initStateMeanOpt, initStateCovarianceOpt, parallelThreadNum, crossValidPredictFile, seqRegularization, showLikelihood)
   }
 }
 
@@ -179,7 +181,8 @@ case class EMCond(emTime: Int = -1,
                   showLikelihood: Boolean = false,
                   initkf: KalmanFilter, initStateMeans: List[DenseVector[Double]],
                   initStateCovariances: List[Matrices],
-                  seqRegularization: Boolean)
+                  seqRegularization: Boolean,
+                  RRegularization: Boolean)
 
 //
 case class ExperimentCond(hDim: Array[Int],

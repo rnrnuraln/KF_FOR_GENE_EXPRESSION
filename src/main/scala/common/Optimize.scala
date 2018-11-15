@@ -33,7 +33,9 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
     AOpt = cond.AOpt, BOpt = cond.BOpt, HOpt = cond.HOpt, QOpt = cond.QOpt,
     ROpt = cond.ROpt, initStateMeanOpt = cond.initStateMeanOpt,
     initStateCovarianceOpt = cond.initStateCovarianceOpt,
-    initkf = null, initStateMeans = List(), initStateCovariances = List(), seqRegularization = cond.seqRegularization)
+    initkf = null, initStateMeans = List(), initStateCovariances = List(), seqRegularization = cond.seqRegularization,
+    showLikelihood = cond.showLikelihood, RRegularization = cond.seqRegularization
+  )
 
   /**
     * how to
@@ -169,9 +171,13 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
         println(newEmOutputs.foldLeft("RandLogLikelihoods:") {(s, x) => s + "\t" + x.logLikelihoods(0) })
         println("final RandNum: " + (randNum * 2 - cond.emRand(0)).toInt)
         val maxEMOutputs = newEmOutputs(0)
-        val emCond = emCondCommon.copy(emTime = cond.emTime(0), initkf = maxEMOutputs.kf, initStateMeans = maxEMOutputs.initStateMeans, initStateCovariances = maxEMOutputs.initStateCovariance)
+        val emCond = emCondCommon.copy(emTime = cond.emTime(0), initkf = maxEMOutputs.kf, initStateMeans = maxEMOutputs.initStateMeans, initStateCovariances = maxEMOutputs.initStateCovariance, RRegularization = false)
         val emAlgorithm = EMAlgorithm(seqs, emCond)
-        println("log: \n" + emAlgorithm.learnBasis())
+        val learned = emAlgorithm.learnBasis()
+        val printLoglikelihoodNum = if (learned.logLikelihoods.length > 21) 21 else learned.logLikelihoods.length
+        val logLikelihoodLists = learned.logLikelihoods.take(printLoglikelihoodNum).zipWithIndex.foldLeft("") {(s, x) => if (x._2 % 3 == 0) s + "\t" + x._1 else s}
+        println("likelihood lists: " + logLikelihoodLists)
+        println("log: \n" + learned)
         (emAlgorithm.learnBasis(), "")
       } else {
         learnSeveralTimesSub(iterNum + 1, newEmOutputs)
@@ -185,6 +191,7 @@ class Optimize(seqs: List[Array[ConObs]], cond: OptimizeCond) {
 
 object Optimize {
   def learn(inputSeqs: String, output: String, condition: String): Unit = {
+    val start = System.currentTimeMillis()
     val basedir = Paths.get(output)
     if (Files.notExists(basedir)) Files.createFile(basedir)
     val seqs = Utils.readSeqs(inputSeqs)
@@ -194,5 +201,7 @@ object Optimize {
     val fp = Utils.makePrintWriter(output)
     fp.print(outputs.toString())
     fp.close()
+    val end = System.currentTimeMillis()
+    print((end - start) + ":ms for optimization")
   }
 }

@@ -125,20 +125,23 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
     */
   def learnBasis(): EMOutputs = {
     val stopCalcVal = 1000.0// 正則化項こそあれ、あまりに大きい項が出てきた場合はそこで打ち止め。ここではとりあえず1000以上が出てきたらやめる方針で
-    def learnSub(prevOutputs: EMOutputs, i: Int, turn: TurnForEM): EMOutputs = {
+    def learnSub(prevOutputs: EMOutputs, i: Int, turn: TurnForEM, forwards: Seq[Forward]): EMOutputs = {
       val trainSeqsWithInits = trainSeqs.zip(prevOutputs.initStateMeans.zip(prevOutputs.initStateCovariance))
       // Kalman smoothing using forward and backward algorithm
-      val forwards = trainSeqsWithInits.map(x => Forward(prevOutputs.kf, x._1, x._2._1, x._2._2))
       val backwards = trainSeqsWithInits.map(x => Backward(prevOutputs.kf, x._1, x._2._1, x._2._2))
       val emDtos = obtainEMDto(forwards.map(_.run).zip(backwards.map(_.run)), prevOutputs.kf)
-
       val outputs = updateParams(emDtos, prevOutputs, turn)
-      if (i > cond.emTime || prevOutputs.calcDif(outputs) < cond.delta || outputs.kf.max > stopCalcVal) {
-        val newOutputs = outputs.copy(logLikelihoods = forwards.map(_.logLikelihood).sum :: prevOutputs.logLikelihoods)
+      val newForwards = trainSeqsWithInits.map(x => Forward(outputs.kf, x._1, x._2._1, x._2._2))
+      val logLikelihood = newForwards.map(_.logLikelihood).sum
+      val newOutputs = outputs.copy(logLikelihoods = logLikelihood :: prevOutputs.logLikelihoods)
+      if (logLikelihood.isNaN || logLikelihood.isInfinity || logLikelihood + 10.0 < prevOutputs.logLikelihoods(0) || outputs.kf.max > stopCalcVal) {
+        //あり得ない結果
+        prevOutputs
+      } else if (i > cond.emTime || prevOutputs.calcDif(outputs) < cond.delta) {
+        //終了条件
         newOutputs
       } else {
-        val newOutputs = if (cond.showLikelihood) outputs.copy(logLikelihoods = forwards.map(_.logLikelihood).sum :: prevOutputs.logLikelihoods) else outputs
-        learnSub(newOutputs, i + 1, turn.rotate())
+        learnSub(newOutputs, i + 1, turn.rotate(), newForwards)
       }
     }
     //どのturnから始めるかをrandomとして設定するためのメソッド
@@ -149,9 +152,11 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
     val mean = if (cond.seqRegularization) allDataMean else DenseVector.zeros[Double](m)
     val std = if (cond.seqRegularization) allDataStd else DenseVector.ones[Double](m)
     //rのregularization
-    val r = if (cond.seqRegularization) cond.initkf.R * DiagMatrices(allDataVariance).inv else cond.initkf.R
+    val r = if (cond.seqRegularization && cond.RRegularization) cond.initkf.R * DiagMatrices(allDataVariance).inv else cond.initkf.R
     val kf = cond.initkf.copy(R = r)
-    learnSub(EMOutputs(kf, List(Double.MinValue), cond.initStateMeans, cond.initStateCovariances, mean, std), 0, turn)
+    val trainSeqsWithInits = trainSeqs.zip(cond.initStateMeans.zip(cond.initStateCovariances))
+    val forwards = trainSeqsWithInits.map(x => Forward(kf, x._1, x._2._1, x._2._2))
+    learnSub(EMOutputs(kf, List(Double.MinValue), cond.initStateMeans, cond.initStateCovariances, mean, std), 0, turn, forwards)
   }
 
   /**
@@ -288,7 +293,7 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
     * optimizing other parameters than covariance.
     * S ... covariance matrix.
     * Differentiation is S^-1(J - XK).
-    * smooth parameters are by ||S^-1||op * ||K||op
+    * smooth parameters are calculated by ||S^-1||op * ||K||op
     *
     * @param optCond
     * @param derivatives
@@ -315,7 +320,8 @@ case class EMAlgorithm(seqs: List[Array[common.ConObs]],
       val time = optCond.subParams(1).toInt //打ち切り上限回数
       val kOp = K.operatorNorm
       if (kOp < 0.0) {
-        return DenseMatrices(DenseMatrix.zeros[Double](100, 100))
+        print("K operator norm is minus" + K)
+        return DenseMatrices(DenseMatrix.zeros[Double](J.rows, K.rows))
       }
       val ita = kOp * invS.operatorNorm
       val initX = X
