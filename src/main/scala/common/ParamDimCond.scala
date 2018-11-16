@@ -283,7 +283,11 @@ object ExperimentCond extends ParamDimCond {
 }
 
 case class PredictCond(mode: String,
-                       forwardEstimateNum: Array[Int] //何個先まで見るか
+                       forwardEstimateNum: Array[Int], //何個先まで見るか
+                       crossValidPredict: Boolean,
+                       skip: Array[Int],
+                       dif: Array[Int],
+                       foldNum: Array[Int]
                       ) extends ParamDimCond
 
 object PredictCond extends ParamDimCond {
@@ -291,6 +295,10 @@ object PredictCond extends ParamDimCond {
     val params = readParams(paramFile)
     val mode = params.getOrElse("mode", "")
     val forwardEstimateNum = params.getOrElse("forwardEstimateNum", "1")
-    PredictCond(mode, forwardEstimateNum)
+    val crossValidPredict = params.getOrElse("crossValidPredict", "")
+    val skip = params.getOrElse("skip", "")
+    val dif = params.getOrElse("dif", "")
+    val foldNum = params.getOrElse("foldNum", "")
+    PredictCond(mode, forwardEstimateNum, crossValidPredict, skip, dif, foldNum)
   }
 }

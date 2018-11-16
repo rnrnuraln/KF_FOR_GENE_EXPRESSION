@@ -54,17 +54,32 @@ class Predict(emOutputs: EMOutputs, seqs: Seq[Array[ConObs]], predictCond: Predi
 
   //カルマンスムーシングによる内部状態の推定
 
-
 }
 
 object Predict {
   def predict(emOutputFile: String, seqFile: String, predictCondFile: String, outputFile: String): Unit = {
-    val emOutputs = EMOutputs(emOutputFile, 0)
     val seqs = utils.Utils.readSeqs(seqFile)
     val predictCond = PredictCond(predictCondFile)
-    val predict = new Predict(emOutputs, seqs, predictCond)
-    val predictSeqs = predict.run
-    writeSeqs(predictSeqs, outputFile)
+    if (predictCond.crossValidPredict) {
+      //CrossValidのlogを用いた予測
+      val seqNum = seqs.length
+      val emOutputSeq = (0 until predictCond.foldNum(0)).map(i => EMOutputs(emOutputFile, predictCond.skip(0) + i * predictCond.dif(0)))
+      val predicted = (0 until predictCond.foldNum(0)).foldLeft(List(): List[Array[(DenseVector[Double], DenseVector[Double])]]) { (s, i) =>
+        val from = seqNum * i / predictCond.foldNum(0)
+        val until = seqNum * (i + 1) / predictCond.foldNum(0)
+        val validateSeqs = seqs.slice(from, until)
+        val emOutputs = emOutputSeq(i)
+        val predict = new Predict(emOutputs, validateSeqs, predictCond)
+        s ::: predict.run.toList
+      }
+      Predict.writeSeqs(predicted, outputFile)
+    } else {
+      //普通のemOutputsによる予測
+      val emOutputs = EMOutputs(emOutputFile, 0)
+      val predict = new Predict(emOutputs, seqs, predictCond)
+      val predictSeqs = predict.run
+      writeSeqs(predictSeqs, outputFile)
+    }
   }
 
   def writeSeqs(seqs: Seq[Array[(DenseVector[Double], DenseVector[Double])]], outputFile: String): Unit = {
@@ -79,6 +94,7 @@ object Predict {
     fp.print(sb.toString())
     fp.close()
   }
+
 
 }
 

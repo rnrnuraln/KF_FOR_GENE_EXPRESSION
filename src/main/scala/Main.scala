@@ -21,7 +21,7 @@ object Main {
     parser.parse(args, Config()) match {
       case Some(Config(_, o, "evaluate", c, s)) => common.Evaluate.run(c, o)
       case Some(Config(i, o, "learn", c, s)) => common.Optimize.learn(i, o, c)
-      case Some(Config(i, o, "mode", c, s)) => common.Predict.predict(i, s, c, o)
+      case Some(Config(i, o, "predict", c, s)) => common.Predict.predict(i, s, c, o)
       case Some(c) =>
       case None =>
       // arguments are bad, error message will have been displayed
