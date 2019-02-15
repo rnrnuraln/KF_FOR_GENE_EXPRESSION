@@ -22,6 +22,7 @@ RealEstimation.ipynb
 *.ipynb
 experiment_condition
 src/analysis/
+docs/hikitsugi.md
 
 [core]
     excludesfile = /Users/tara/.gitignore_global

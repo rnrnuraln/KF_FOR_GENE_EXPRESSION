@@ -649,4 +649,9 @@ object EMOutputs {
     val std = readVector()
     EMOutputs(kf, List(logLikelihood), List(mu), List(S), mean, std)
   }
+
+  def readLogLikelihoods(input: String): Unit = {
+    val em = EMOutputs(input, 0)
+    println(em.logLikelihoods(0))
+  }
 }

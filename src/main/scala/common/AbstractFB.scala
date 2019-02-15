@@ -152,8 +152,8 @@ case class Forward(kf: KalmanFilter, seqs: Array[common.ConObs],
         //update forward gaussian with no observation
         val C0_D1 = prev.C
         val Bu = seqs(i + loopNum - 1).control match {
-          case Some(c) => kf.B.getOrElse(DenseMatrices(DenseMatrix.zeros[Double](n, kf.l))) * c;
-          case None => DenseVector.zeros[Double](n)
+          case Some(c) => kf.B.getOrElse(DenseMatrices(DenseMatrix.zeros[Double](kf.n, kf.l))) * c;
+          case None => DenseVector.zeros[Double](kf.n)
         }
         val C = kf.Q + kf.A * C0_D1 * kf.A.t
         val invC = C.inv

@@ -89,7 +89,7 @@ case class GenerateCond(s: String, m: Matrices = null, v: DenseVector[Double] = 
         val aMin = a.foldLeft(Double.MaxValue) { (s, y) => if (s > y) y else s }
         val aMax = a.foldLeft(-1.0) { (s, y) => if (s > y) y else s }
         //極端な値の排除
-        if (aMin < 0.01 || aMax > 10.0) makeA else DiagMatrices(a)
+        if (aMin < 0.001 || aMax > 10.0) makeA else DiagMatrices(a)
       }
       (makeA, "diag")
     })
