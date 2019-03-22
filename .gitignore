@@ -23,6 +23,8 @@ RealEstimation.ipynb
 experiment_condition
 src/analysis/
 docs/hikitsugi.md
+docs/references/
+docs/tekitou_memo.txt
 
 [core]
     excludesfile = /Users/tara/.gitignore_global

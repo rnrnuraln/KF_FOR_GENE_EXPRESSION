@@ -51,7 +51,7 @@ case class ExperimentOutputCond(hDim: Int, //dimension of hidden variables
                                 initStateMeanError: Double,
                                 initStateCovarianceError: Double,
                                 calcTime: Long,
-                                logLikelihood: Double,
+                                logLikelihood: Double, //log likelihood of test sequence using
                                 predCorr: Double,
                                 realLikelihood: Double,
                                 realCorrPred: Double,

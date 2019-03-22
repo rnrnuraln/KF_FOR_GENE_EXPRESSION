@@ -83,6 +83,9 @@ Basically, parameters are written as
 Parameters are written in left side and values are right side of the equal symbol.
 Values are basically space separated. Values are separated by comma in some meanings.
 
+#今考えるとJSON形式の方がよっぽど一般的だし対応するライブラリもありそうな気がします……
+#ここの読み込みの実装はParamDimCondクラスに書いているのですが、自分で言うのも何ですがあまり効率的なコードではないです
+
 =====================================================
 
  hidden variable related parameters
