@@ -68,6 +68,11 @@ Simple usage is written here.
  We can arrange them using -c option.
  However, it is so complicated that we cannot describe in this space.
  The explanation of the condition would be written in docs/format.txt later.
+
+** "clustering" mode
+ Under construction. Cluster genes whose temporary expression is similar. This mode is independent of other modes.
+ Clustering method is k-means.
+ Hidden Markov Models are used for capturing temporary change of genes. Baum-Welch algorithm is used for updating of the model.
  
 ## Install
 
@@ -118,7 +123,6 @@ We changed the number of the sequences in several ways and watched how relative 
 
 Log-likelihood ratio (estimated/true) for the test data decreased with data increasing, which means that estimated parameters becomes near to true one. 
 Hence, we can say that our program worked well in the simulation data. 
-
 
 ## Licence
 
