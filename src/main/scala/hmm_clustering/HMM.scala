@@ -10,9 +10,16 @@ case class HMM(mu: Array[Double], sigma: Array[Double], transit: Array[Array[Dou
   val m = mu.length
 
   def calcLogLikelihood(seq: Array[Double]): Double = {
-    val res = 10000
-    assert(res != 10000)
-    10000
+    val forward = Forward(this, seq)
+    forward.logLikelihood
+  }
+
+  def calcLikelihood(obs: Double): Array[Double] = {
+    mu.zip(sigma).map(x => {
+      val m = x._1
+      val s = x._2
+      Math.exp(- (obs - m) * (obs - m) / (2 * s * s)) / Math.sqrt(2 * Math.PI * s * s)
+    })
   }
 
 }
