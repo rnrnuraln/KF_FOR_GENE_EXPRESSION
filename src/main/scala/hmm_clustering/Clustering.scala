@@ -16,6 +16,7 @@ class Clustering(seqs: Array[Array[Double]], clusteringCond: ClusteringCond, ini
   // HMMとそれに対応する遺伝子のペアを返す
   def run(): Array[(HMM, Set[Int])] = {
     def runloop(hmmWithGenes: Array[(HMM, Set[Int])], loopNum: Int, allLogLikelihood: Double): Array[(HMM, Set[Int])] = {
+      println("log likelihood in clustering: " + allLogLikelihood)
       // 各モデルの計算
       val newModels = hmmWithGenes.map(x => {
         val model = x._1
@@ -27,8 +28,7 @@ class Clustering(seqs: Array[Array[Double]], clusteringCond: ClusteringCond, ini
       val newGeneSetsWithLL = assignMaxLikelihoodModel(newModels)
       val newHMMWithGenes = newModels.zip(newGeneSetsWithLL._1)
       val newLoglikelihood = newGeneSetsWithLL._2
-      print("new likelihood in clustering: " + newLoglikelihood)
-      if (newLoglikelihood- allLogLikelihood > clusteringCond.delta(0) || loopNum > clusteringCond.loopMax(0)) {
+      if (newLoglikelihood- allLogLikelihood < clusteringCond.delta(0) || loopNum > clusteringCond.loopMax(0)) {
         return newHMMWithGenes
       }
       runloop(newHMMWithGenes, loopNum + 1, newLoglikelihood)
@@ -37,16 +37,16 @@ class Clustering(seqs: Array[Array[Double]], clusteringCond: ClusteringCond, ini
     runloop(initialHMMs.zip(maxArraySetWithLogLikelihood._1), 0, maxArraySetWithLogLikelihood._2)
   }
 
-  // HMMから, それぞれに属するクラスタに属する遺伝子のindexのsetを返す 同時にその時の全てのlikelihoodの和も返す
+  // HMMから, それぞれに属するクラスタに属する遺伝子のindexのsetを返す 同時にその時の全てのlikelihoodのlogの積も返す
   // それぞれの対数尤度を計算して最も大きいものを割り当てる
   private def assignMaxLikelihoodModel(HMMs: Array[HMM]): (Array[Set[Int]], Double) = {
     val eachGeneIndex = seqs.map(geneSeq => {
       HMMs.zipWithIndex.foldLeft(-1.0E10, -1) {(s, x) =>
-        val likelihood = x._1.calcLogLikelihood(geneSeq)
+        val likelihood = x._1.calcLikelihood(geneSeq)
         if (likelihood > s._1) (likelihood, x._2) else s
       }
     })
-    val allLogLikelihood = eachGeneIndex.foldLeft(0.0) {(s, x) => s + x._1}
+    val allLogLikelihood = eachGeneIndex.foldLeft(0.0) {(s, x) => s + Math.log(x._1)}
     val maxArraySet = Array.fill[Set[Int]](m)(Set())
     eachGeneIndex.zipWithIndex.foreach(x => maxArraySet(x._1._2) = maxArraySet(x._1._2) + x._2)
     (maxArraySet, allLogLikelihood)

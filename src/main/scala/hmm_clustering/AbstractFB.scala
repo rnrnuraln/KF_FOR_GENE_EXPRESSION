@@ -14,7 +14,7 @@ trait AbstractFB {
 
   val n = hmm.transit.length
 
-  val run: Array[Double]
+  val run: Array[Array[Double]]
 }
 
 /**
@@ -44,7 +44,7 @@ case class Forward(hmm: HMM, seq: Array[Double]) extends AbstractFB {
     forward
   }
 
-  def logLikelihood: Double = run(T).sum
+  def likelihood: Double = run(T).sum
 
 }
 
@@ -73,5 +73,5 @@ case class Backward(hmm: HMM, seq: Array[Double]) extends AbstractFB {
     backward
   }
 
-  def logLikelihood: Double = run(0)(0)
+  def likelihood: Double = run(0)(0)
 }
